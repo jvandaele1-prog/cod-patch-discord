@@ -2,16 +2,13 @@ import os
 import re
 import requests
 from bs4 import BeautifulSoup
-from urllib.parse import urljoin
 
 WEBHOOK_URL = os.environ.get("DISCORD_WEBHOOK")
 
-INDEX_URL = "https://www.callofduty.com/fr/patchnotes"
+PATCH_URL = "https://www.callofduty.com/patchnotes/2025/12/call-of-duty-bo7-warzone-season-01-patch-notes"
 
 HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                  "AppleWebKit/537.36 (KHTML, like Gecko) "
-                  "Chrome/131.0 Safari/537.36"
+    "User-Agent": "Mozilla/5.0"
 }
 
 
@@ -25,60 +22,20 @@ def get_page(url):
     return response.text
 
 
-def clean(text):
-    return re.sub(r"\s+", " ", text).strip()
-
-
-def find_warzone_links(html):
-    soup = BeautifulSoup(html, "html.parser")
-
-    results = []
-
-    for link in soup.find_all("a", href=True):
-
-        text = clean(link.get_text(" ", strip=True))
-        href = link["href"]
-
-        full_url = urljoin(INDEX_URL, href)
-
-        combined = (text + " " + full_url).lower()
-
-        # On cherche uniquement les véritables notes Warzone
-        if "warzone" in combined and "patch-notes" in combined:
-
-            if full_url not in results:
-                results.append(full_url)
-
-    return results
-
-
-def choose_latest_link(links):
-
-    if not links:
-        return None
-
-    # Les URL Call of Duty contiennent généralement
-    # l'année et le mois de publication.
-    # On choisit la première URL trouvée dans la rubrique WZ.
-
-    return links[0]
-
-
-def extract_patch(html):
-
+def extract_content(html):
     soup = BeautifulSoup(html, "html.parser")
 
     for element in soup([
         "script",
         "style",
         "noscript",
-        "svg",
         "nav",
-        "footer"
+        "footer",
+        "header",
+        "svg"
     ]):
         element.decompose()
 
-    # Cherche le contenu principal
     main = soup.find("main")
 
     if main:
@@ -89,77 +46,51 @@ def extract_patch(html):
     lines = []
 
     for line in text.splitlines():
+        line = re.sub(r"\s+", " ", line).strip()
 
-        line = clean(line)
-
-        if not line:
-            continue
-
-        # Élimine certains éléments de navigation
-        if line in [
-            "Skip To Main Content",
-            "Search",
-            "Profil",
-            "Menu",
-            "Close Menu",
-            "Connexion",
-            "S'inscrire"
-        ]:
-            continue
-
-        lines.append(line)
+        if line:
+            lines.append(line)
 
     return lines
 
 
-def find_weapon_section(lines):
+def find_weapon_changes(lines):
 
-    start = None
+    keywords = [
+        "WEAPONS",
+        "WEAPON",
+        "ARMES",
+        "ARME",
+        "DÉGÂTS",
+        "DEGATS",
+        "DAMAGE",
+        "RANGE",
+        "PORTÉE",
+        "RECOIL",
+        "RECUL",
+        "FIRE RATE",
+        "CADENCE"
+    ]
+
+    result = []
 
     for i, line in enumerate(lines):
 
-        upper = line.upper()
+        if any(keyword.lower() in line.lower()
+               for keyword in keywords):
 
-        if upper in [
-            "WEAPONS",
-            "ARMES",
-            "WEAPONS ADJUSTMENTS",
-            "AJUSTEMENTS DES ARMES"
-        ]:
-            start = i
-            break
+            start = max(0, i - 2)
+            end = min(len(lines), i + 10)
 
-    if start is None:
-        return []
+            for item in lines[start:end]:
 
-    section = []
+                if item not in result:
+                    result.append(item)
 
-    for line in lines[start:]:
-
-        upper = line.upper()
-
-        # On s'arrête à une nouvelle grande section
-        if line in [
-            "MAPS",
-            "MODES",
-            "PERKS",
-            "EQUIPMENT",
-            "FIELD UPGRADES",
-            "KILLSTREAKS",
-            "BUG FIXES",
-            "CORRECTIONS DE BUGS"
-        ] and len(section) > 5:
-            break
-
-        section.append(line)
-
-        if len(section) >= 120:
-            break
-
-    return section
+    return result
 
 
-def classify_weapon_changes(lines):
+def classify(lines):
 
     buffs = []
     nerfs = []
@@ -169,43 +100,33 @@ def classify_weapon_changes(lines):
 
         lower = line.lower()
 
-        # Changements positifs
-        positive = [
+        if any(word in lower for word in [
             "increased",
             "increase",
             "improved",
-            "improvement",
             "augmenté",
             "augmentée",
             "augmentés",
             "augmentées",
             "amélioré",
             "améliorée",
-            "amélioration",
-            "↑"
-        ]
+            "amélioration"
+        ]):
+            buffs.append(line)
 
-        # Changements négatifs
-        negative = [
+        elif any(word in lower for word in [
             "reduced",
-            "reduction",
+            "reduce",
             "decreased",
             "decrease",
-            "reduction",
             "réduit",
             "réduite",
             "réduits",
             "réduites",
             "diminué",
             "diminuée",
-            "diminution",
-            "↓"
-        ]
-
-        if any(word in lower for word in positive):
-            buffs.append(line)
-
-        elif any(word in lower for word in negative):
+            "diminution"
+        ]):
             nerfs.append(line)
 
         elif any(word in lower for word in [
@@ -214,50 +135,44 @@ def classify_weapon_changes(lines):
             "correction",
             "corrected",
             "corrigé",
-            "corrigée"
+            "corrigée",
+            "problème"
         ]):
             corrections.append(line)
 
     return buffs, nerfs, corrections
 
 
-def unique(items):
+def unique(lines):
 
     result = []
     seen = set()
 
-    for item in items:
+    for line in lines:
 
-        key = item.lower()
+        key = line.lower()
 
         if key not in seen:
             seen.add(key)
-            result.append(item)
+            result.append(line)
 
     return result
 
 
-def format_section(title, emoji, lines, maximum=650):
+def format_section(title, emoji, lines):
+
+    lines = unique(lines)
 
     if not lines:
         return ""
 
-    output = f"{emoji} **{title}**\n"
+    message = f"{emoji} **{title}**\n"
 
-    total = len(output)
+    for line in lines[:20]:
 
-    for line in unique(lines):
+        message += f"• {line}\n"
 
-        item = f"• {line}\n"
-
-        if total + len(item) > maximum:
-            output += "• ...\n"
-            break
-
-        output += item
-        total += len(item)
-
-    return output + "\n"
+    return message + "\n"
 
 
 def send_discord(message):
@@ -281,39 +196,19 @@ def send_discord(message):
 
 def main():
 
-    print("🔎 Recherche des notes Call of Duty...")
+    print("🔎 Ouverture des notes Warzone...")
 
-    index_html = get_page(INDEX_URL)
+    html = get_page(PATCH_URL)
 
-    links = find_warzone_links(index_html)
+    lines = extract_content(html)
 
-    print("🔗 Liens Warzone trouvés :", len(links))
+    print("📄 Contenu récupéré :", len(lines), "lignes")
 
-    for link in links:
-        print(link)
+    changes = find_weapon_changes(lines)
 
-    patch_url = choose_latest_link(links)
+    print("🔫 Éléments trouvés :", len(changes))
 
-    if not patch_url:
-        print("❌ Aucune note Warzone trouvée.")
-        return
-
-    print("✅ Note sélectionnée :")
-    print(patch_url)
-
-    patch_html = get_page(patch_url)
-
-    lines = extract_patch(patch_html)
-
-    print("📄 Lignes récupérées :", len(lines))
-
-    weapon_section = find_weapon_section(lines)
-
-    print("🔫 Lignes de la section armes :", len(weapon_section))
-
-    buffs, nerfs, corrections = classify_weapon_changes(
-        weapon_section
-    )
+    buffs, nerfs, corrections = classify(changes)
 
     message = (
         "🇫🇷 **CALL OF DUTY — WARZONE**\n"
@@ -341,24 +236,26 @@ def main():
     if not buffs and not nerfs and not corrections:
 
         message += (
-            "📋 **MODIFICATIONS D'ARMES**\n"
-            "Aucun changement détecté automatiquement.\n\n"
+            "⚠️ Aucun changement d'arme détecté automatiquement.\n\n"
         )
 
     message += (
         "🔗 **Notes officielles :**\n"
-        + patch_url
+        + PATCH_URL
     )
 
     if len(message) > 1900:
         message = message[:1800]
         message += "\n\n🔗 **Notes officielles :**\n"
-        message += patch_url
+        message += PATCH_URL
 
     send_discord(message)
 
     print("✅ Message envoyé sur Discord.")
 
+
+if __name__ == "__main__":
+    main()
 
 if __name__ == "__main__":
     main()
