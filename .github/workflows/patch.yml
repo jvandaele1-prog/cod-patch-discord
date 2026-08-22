@@ -2,33 +2,65 @@ name: Call of Duty Patch Bot
 
 on:
   schedule:
+    # Vérification toutes les 15 minutes
     - cron: "*/15 * * * *"
+
+  # Permet de lancer manuellement le bot
   workflow_dispatch:
 
+# Autorise GitHub Actions à écrire le fichier
+# last_patch.txt dans le dépôt.
 permissions:
   contents: write
 
+# Empêche deux exécutions simultanées.
+concurrency:
+  group: cod-patch-bot
+  cancel-in-progress: false
+
 jobs:
+
   run-bot:
+
     runs-on: ubuntu-latest
 
     steps:
+
+      # Récupération du dépôt
       - name: Recuperer le code
         uses: actions/checkout@v4
         with:
           persist-credentials: true
 
+      # Installation de Python
       - name: Installer Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
+      # Installation des bibliothèques nécessaires
       - name: Installer les dependances
         run: |
           python -m pip install --upgrade pip
           pip install requests beautifulsoup4
 
+      # Lancement du bot
       - name: Lancer le bot
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
-        run: python bot.py
+        run: |
+          python bot.py
+
+      # Sauvegarde de la mémoire du dernier patch
+      - name: Sauvegarder le dernier patch
+        run: |
+          git config user.name "COD Patch Bot"
+          git config user.email "cod-patch-bot@users.noreply.github.com"
+
+          if git diff --quiet; then
+            echo "Aucune modification à enregistrer."
+          else
+            git add last_patch.txt
+            git commit -m "Update last Warzone patch"
+            git push
+          fi
