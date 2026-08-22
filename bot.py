@@ -17,111 +17,89 @@ HEADERS = {
 }
 
 
+# =========================================================
+# INTERNET
+# =========================================================
+
 def get_page(url):
+
     response = requests.get(
         url,
         headers=HEADERS,
         timeout=30
     )
+
     response.raise_for_status()
+
     return response.text
 
 
+# =========================================================
+# NETTOYAGE
+# =========================================================
+
 def clean(text):
-    return re.sub(r"\s+", " ", text).strip()
+
+    return re.sub(
+        r"\s+",
+        " ",
+        text
+    ).strip()
 
 
-def get_content(html):
-
-    soup = BeautifulSoup(html, "html.parser")
-
-    for element in soup([
-        "script",
-        "style",
-        "noscript",
-        "svg",
-        "nav",
-        "footer",
-        "header"
-    ]):
-        element.decompose()
-
-    main = soup.find("main")
-
-    if main:
-        elements = main.find_all(
-            ["h1", "h2", "h3", "h4", "p", "li", "td", "th"]
-        )
-    else:
-        elements = soup.find_all(
-            ["h1", "h2", "h3", "h4", "p", "li", "td", "th"]
-        )
-
-    lines = []
-
-    for element in elements:
-
-        text = clean(
-            element.get_text(" ", strip=True)
-        )
-
-        if text and text not in lines:
-            lines.append(text)
-
-    return lines
-
-
-def find_weapon_section(lines):
-
-    start = None
-
-    for i, line in enumerate(lines):
-
-        if line.strip().upper() == "WEAPONS":
-            start = i
-            break
-
-    if start is None:
-        return []
-
-    result = []
-
-    for line in lines[start:]:
-
-        if line.strip().upper() in [
-            "BUG FIXES",
-            "BLACK OPS ROYALE"
-        ]:
-            break
-
-        result.append(line)
-
-    return result
-
-
-def unique(items):
-
-    result = []
-    seen = set()
-
-    for item in items:
-
-        key = item.lower()
-
-        if key not in seen:
-            seen.add(key)
-            result.append(item)
-
-    return result
-
-
-# ---------------------------------------------------------
+# =========================================================
 # TRADUCTION
-# ---------------------------------------------------------
+# =========================================================
 
 def translate(text):
 
     replacements = {
+
+        "Damage": "Dégâts",
+        "damage": "dégâts",
+
+        "Max Damage": "Dégâts max.",
+
+        "Minimum Damage": "Dégâts minimum",
+
+        "Damage Range": "Portée des dégâts",
+
+        "Range": "Portée",
+        "range": "portée",
+
+        "Bullet Velocity": "Vitesse des projectiles",
+
+        "Recoil": "Recul",
+
+        "Vertical Recoil": "Recul vertical",
+
+        "Horizontal Recoil": "Recul horizontal",
+
+        "Fire Rate": "Cadence de tir",
+
+        "Rate of Fire": "Cadence de tir",
+
+        "Headshot": "Tir à la tête",
+
+        "Headshot Multiplier": "Multiplicateur de tir à la tête",
+
+        "Magazine Size": "Taille du chargeur",
+
+        "Reload Speed": "Vitesse de rechargement",
+
+        "Movement Speed": "Vitesse de déplacement",
+
+        "Sprint Speed": "Vitesse de sprint",
+
+        "ADS Speed": "Vitesse ADS",
+
+        "Gunkick": "Recul de visée",
+
+        "Viewkick": "Recul de caméra",
+
+        "Penalty": "Malus",
+
+        "Benefit": "Bonus",
 
         "Increased": "Augmenté",
         "increased": "augmenté",
@@ -135,63 +113,10 @@ def translate(text):
         "Improved": "Amélioré",
         "improved": "amélioré",
 
-        "Damage": "Dégâts",
-        "damage": "dégâts",
-
-        "Range": "Portée",
-        "range": "portée",
-
-        "Damage Range": "Portée des dégâts",
-
-        "Bullet Velocity": "Vitesse des projectiles",
-
-        "Recoil": "Recul",
-
-        "Vertical Recoil": "Recul vertical",
-
-        "Horizontal Recoil": "Recul horizontal",
-
-        "Headshot": "Tir à la tête",
-
-        "Headshot multiplier": "Multiplicateur de tir à la tête",
-
-        "Magazine Size": "Taille du chargeur",
-
-        "Fire Rate": "Cadence de tir",
-
-        "Sprint to Fire speed": "Vitesse sprint → tir",
-
-        "ADS Speed": "Vitesse ADS",
-
-        "Benefit": "Bonus",
-
-        "Penalty": "Malus",
-
-        "increased from": "augmenté de",
-
-        "decreased from": "réduit de",
-
-        "reduced from": "réduit de",
-
-        "improved from": "amélioré de",
-
-        "to": "à",
-
-        "All Modes": "Tous les modes",
-
-        "BR/RES Only": "Battle Royale / Résurgence uniquement",
-
-        "Max Damage": "Dégâts maximum",
-
-        "Mid 1 Damage": "Dégâts moyens 1",
-
-        "Minimum Damage": "Dégâts minimum",
-
         "seconds": "secondes",
-
         "meters": "mètres",
 
-        "m/s": "m/s"
+        "to": "à"
     }
 
     for english, french in sorted(
@@ -208,300 +133,543 @@ def translate(text):
     return text
 
 
-# ---------------------------------------------------------
-# DÉTECTION DES CHANGEMENTS
-# ---------------------------------------------------------
+# =========================================================
+# ARMES CONNUES
+# =========================================================
 
-def classify_change(line):
+WEAPONS = [
 
-    lower = line.lower()
+    "AN-94",
+    "EGRT-17",
+    "FG-42",
+    "M15 MOD 0",
+    "MK35 ISR",
+    "MXR-17",
+    "VX COMPACT",
+    "CBRS-3",
+    "GREMLIN",
+    "MPC-25",
+    "RYDEN 45K",
+    "STRUMWOLF 45",
+    "MAMMOTH",
+    "M10 BREACHER",
+    "SG-12",
+    "STRIDER 300",
+    "PEACEKEEPER MK1"
+]
+
+
+# =========================================================
+# DÉTECTION DE L'ARME
+# =========================================================
+
+def detect_weapon(text, current):
+
+    upper = text.upper()
+
+    for weapon in WEAPONS:
+
+        if weapon in upper:
+
+            return weapon
+
+    return current
+
+
+# =========================================================
+# CLASSIFICATION INTELLIGENTE
+# =========================================================
+
+def classify(text):
+
+    lower = text.lower()
 
     # -----------------------------------------------------
-    # IGNORER LES DESCRIPTIONS D'ARMES
-    # -----------------------------------------------------
-
-    description_words = [
-        "heavy metal projectiles",
-        "unlockable via",
-        "silently fires",
-        "series of electromagnetic coils",
-        "overall handling and mobility",
-        "weekly challenge reward",
-        "this weapon",
-        "fires two projectiles"
-    ]
-
-    if any(
-        word in lower
-        for word in description_words
-    ):
-        return None
-
-    # -----------------------------------------------------
-    # CAS PARTICULIER :
-    # UN MALUS QUI DIMINUE = BUFF
+    # MALUS
     # -----------------------------------------------------
 
     if (
         "penalty reduced" in lower
         or "penalty decreased" in lower
-        or "penalty reduced from" in lower
     ):
+
         return "buff"
 
+    if (
+        "penalty increased" in lower
+        or "penalty increased" in lower
+    ):
+
+        return "nerf"
+
     # -----------------------------------------------------
-    # CAS PARTICULIER :
-    # UN BONUS QUI AUGMENTE = BUFF
+    # BONUS
     # -----------------------------------------------------
 
     if (
         "benefit increased" in lower
         or "benefit improved" in lower
-        or "benefit increased from" in lower
     ):
+
         return "buff"
 
-    # -----------------------------------------------------
-    # AUGMENTATIONS
-    # -----------------------------------------------------
-
-    buff_words = [
-        "increased",
-        "increase",
-        "improved",
-        "improvement",
-        "augmenté",
-        "augmentée",
-        "augmentés",
-        "augmentées",
-        "amélioré",
-        "améliorée",
-        "amélioration",
-        "⇧",
-        "↑"
-    ]
-
-    # -----------------------------------------------------
-    # DIMINUTIONS
-    # -----------------------------------------------------
-
-    nerf_words = [
-        "reduced",
-        "reduce",
-        "decreased",
-        "decrease",
-        "reduction",
-        "réduit",
-        "réduite",
-        "réduits",
-        "réduites",
-        "diminué",
-        "diminuée",
-        "diminution",
-        "⇩",
-        "↓"
-    ]
-
-    # -----------------------------------------------------
-    # CORRECTIONS
-    # -----------------------------------------------------
-
-    correction_words = [
-        "fixed",
-        "fix",
-        "addressed an issue",
-        "correction",
-        "corrected",
-        "corrigé",
-        "corrigée"
-    ]
-
-    if any(
-        word in lower
-        for word in correction_words
+    if (
+        "benefit reduced" in lower
+        or "benefit decreased" in lower
     ):
-        return "correction"
 
-    if any(
-        word in lower
-        for word in buff_words
+        return "nerf"
+
+    # -----------------------------------------------------
+    # RECUL
+    # -----------------------------------------------------
+
+    if "recoil" in lower:
+
+        if (
+            "reduced" in lower
+            or "decreased" in lower
+        ):
+
+            return "buff"
+
+        if (
+            "increased" in lower
+            or "increased" in lower
+        ):
+
+            return "nerf"
+
+    # -----------------------------------------------------
+    # DÉGÂTS
+    # -----------------------------------------------------
+
+    if "damage" in lower:
+
+        if (
+            "increased" in lower
+            or "improved" in lower
+        ):
+
+            return "buff"
+
+        if (
+            "reduced" in lower
+            or "decreased" in lower
+        ):
+
+            return "nerf"
+
+    # -----------------------------------------------------
+    # PORTÉE
+    # -----------------------------------------------------
+
+    if "range" in lower:
+
+        if (
+            "increased" in lower
+            or "improved" in lower
+        ):
+
+            return "buff"
+
+        if (
+            "reduced" in lower
+            or "decreased" in lower
+        ):
+
+            return "nerf"
+
+    # -----------------------------------------------------
+    # VITESSE PROJECTILES
+    # -----------------------------------------------------
+
+    if "bullet velocity" in lower:
+
+        if (
+            "increased" in lower
+            or "improved" in lower
+        ):
+
+            return "buff"
+
+        if (
+            "reduced" in lower
+            or "decreased" in lower
+        ):
+
+            return "nerf"
+
+    # -----------------------------------------------------
+    # CADENCE
+    # -----------------------------------------------------
+
+    if (
+        "fire rate" in lower
+        or "rate of fire" in lower
     ):
+
+        if (
+            "increased" in lower
+            or "improved" in lower
+        ):
+
+            return "buff"
+
+        if (
+            "reduced" in lower
+            or "decreased" in lower
+        ):
+
+            return "nerf"
+
+    # -----------------------------------------------------
+    # FLÈCHES DU TABLEAU
+    # -----------------------------------------------------
+
+    if "⇧" in text or "↑" in text:
+
         return "buff"
 
-    if any(
-        word in lower
-        for word in nerf_words
-    ):
+    if "⇩" in text or "↓" in text:
+
         return "nerf"
 
     return None
 
 
-def extract_weapon_name(line, previous_name):
+# =========================================================
+# IGNORER LES DESCRIPTIONS
+# =========================================================
 
-    # Si la ligne contient déjà un nom connu,
-    # on le conserve.
+def is_description(text):
 
-    weapon_names = [
-        "AN-94",
-        "EGRT-17",
-        "FG-42",
-        "M15 MOD 0",
-        "MK35 ISR",
-        "MXR-17",
-        "VX COMPACT",
-        "CBRS-3",
-        "GREMLIN",
-        "MPC-25",
-        "RYDEN 45K",
-        "STRUMWOLF 45",
-        "MAMMOTH",
-        "M10 BREACHER",
-        "SG-12",
-        "STRIDER 300",
-        "PEACEKEEPER MK1"
+    lower = text.lower()
+
+    forbidden = [
+
+        "heavy metal projectiles",
+        "electromagnetic coils",
+        "unlockable via",
+        "weekly challenge",
+        "silently fires",
+        "overall handling",
+        "mobility",
+        "this weapon fires"
     ]
 
-    upper = line.upper()
+    for word in forbidden:
 
-    for weapon in weapon_names:
+        if word in lower:
 
-        if weapon in upper:
-            return weapon
+            return True
 
-    return previous_name
+    return False
 
 
-def clean_change_line(line):
+# =========================================================
+# EXTRACTION
+# =========================================================
 
-    # Retire les flèches inutiles
-    line = line.replace("⇧", "")
-    line = line.replace("↑", "")
-    line = line.replace("⇩", "")
-    line = line.replace("↓", "")
+def extract_lines(html):
 
-    # Nettoyage
-    line = clean(line)
+    soup = BeautifulSoup(
+        html,
+        "html.parser"
+    )
 
-    return line
+    for element in soup([
+        "script",
+        "style",
+        "noscript",
+        "svg",
+        "nav",
+        "footer",
+        "header"
+    ]):
 
+        element.decompose()
+
+    main = soup.find("main")
+
+    if main:
+
+        elements = main.find_all(
+            [
+                "h1",
+                "h2",
+                "h3",
+                "h4",
+                "p",
+                "li",
+                "td",
+                "th"
+            ]
+        )
+
+    else:
+
+        elements = soup.find_all(
+            [
+                "h1",
+                "h2",
+                "h3",
+                "h4",
+                "p",
+                "li",
+                "td",
+                "th"
+            ]
+        )
+
+    result = []
+
+    for element in elements:
+
+        text = clean(
+            element.get_text(
+                " ",
+                strip=True
+            )
+        )
+
+        if text:
+
+            result.append(text)
+
+    return result
+
+
+# =========================================================
+# SECTION ARMES
+# =========================================================
+
+def get_weapon_section(lines):
+
+    start = None
+
+    for index, line in enumerate(lines):
+
+        if line.upper() == "WEAPONS":
+
+            start = index
+            break
+
+    if start is None:
+
+        return []
+
+    result = []
+
+    for line in lines[start:]:
+
+        upper = line.upper()
+
+        if upper in [
+            "BUG FIXES",
+            "BLACK OPS ROYALE",
+            "GAMEPLAY",
+            "KILLSTREAKS"
+        ]:
+
+            break
+
+        result.append(line)
+
+    return result
+
+
+# =========================================================
+# CONVERSION DES TABLEAUX
+# =========================================================
+
+def normalize_value(value):
+
+    value = clean(value)
+
+    value = value.replace(
+        "⇧",
+        ""
+    )
+
+    value = value.replace(
+        "⇩",
+        ""
+    )
+
+    value = value.replace(
+        "↑",
+        ""
+    )
+
+    value = value.replace(
+        "↓",
+        ""
+    )
+
+    return value.strip()
+
+
+def extract_numeric_change(text):
+
+    # Recherche :
+    #
+    # 38 → 41
+    # 38 -> 41
+    # 38 to 41
+    #
+    match = re.search(
+        r"(\d+(?:\.\d+)?%?)\s*"
+        r"(?:→|->|to)\s*"
+        r"(\d+(?:\.\d+)?%?)",
+        text,
+        re.IGNORECASE
+    )
+
+    if match:
+
+        return (
+            match.group(1),
+            match.group(2)
+        )
+
+    return None
+
+
+# =========================================================
+# EXTRACTION DES MODIFICATIONS
+# =========================================================
 
 def extract_changes(lines):
 
     buffs = []
     nerfs = []
-    corrections = []
 
     current_weapon = "Arme"
 
     for line in lines:
 
-        # Mise à jour du nom de l'arme
-        current_weapon = extract_weapon_name(
+        if is_description(line):
+
+            continue
+
+        current_weapon = detect_weapon(
             line,
             current_weapon
         )
 
-        category = classify_change(line)
+        category = classify(line)
 
         if category is None:
+
             continue
 
-        line = clean_change_line(line)
+        text = normalize_value(
+            line
+        )
 
-        # Évite les lignes trop longues/descriptions
-        if len(line) > 250:
-            continue
+        # -------------------------------------------------
+        # Valeur numérique
+        # -------------------------------------------------
 
-        # On retire le nom d'arme répété
-        for weapon in [
-            "AN-94",
-            "EGRT-17",
-            "FG-42",
-            "M15 MOD 0",
-            "MK35 ISR",
-            "MXR-17",
-            "VX COMPACT",
-            "CBRS-3",
-            "GREMLIN",
-            "MPC-25",
-            "RYDEN 45K",
-            "STRUMWOLF 45",
-            "MAMMOTH",
-            "M10 BREACHER",
-            "SG-12",
-            "STRIDER 300",
-            "PEACEKEEPER MK1"
-        ]:
+        numeric = extract_numeric_change(
+            text
+        )
 
-            if line.upper().startswith(
+        if numeric:
+
+            before, after = numeric
+
+            # On reconstruit la ligne proprement
+            text = re.sub(
+                r"(\d+(?:\.\d+)?%?)\s*"
+                r"(?:→|->|to)\s*"
+                r"(\d+(?:\.\d+)?%?)",
+                f"{before} → {after}",
+                text,
+                flags=re.IGNORECASE
+            )
+
+        # -------------------------------------------------
+        # Nettoyage
+        # -------------------------------------------------
+
+        for weapon in WEAPONS:
+
+            if text.upper().startswith(
                 weapon
             ):
 
-                line = line[len(weapon):].strip()
+                text = text[
+                    len(weapon):
+                ].strip()
 
                 break
 
+        if not text:
+
+            continue
+
+        # On ignore les simples chiffres seuls
+        if re.fullmatch(
+            r"[\d\s\-\>\<m%]+",
+            text
+        ):
+
+            continue
+
         entry = (
             f"**{current_weapon}** — "
-            f"{translate(line)}"
+            f"{translate(text)}"
         )
 
         if category == "buff":
+
             buffs.append(entry)
 
         elif category == "nerf":
-            nerfs.append(entry)
 
-        elif category == "correction":
-            corrections.append(entry)
+            nerfs.append(entry)
 
     return (
         unique(buffs),
-        unique(nerfs),
-        unique(corrections)
+        unique(nerfs)
     )
 
 
-# ---------------------------------------------------------
+# =========================================================
+# UNIQUE
+# =========================================================
+
+def unique(items):
+
+    result = []
+
+    seen = set()
+
+    for item in items:
+
+        key = item.lower()
+
+        if key not in seen:
+
+            seen.add(key)
+
+            result.append(item)
+
+    return result
+
+
+# =========================================================
 # DISCORD
-# ---------------------------------------------------------
-
-def format_section(
-    title,
-    emoji,
-    lines,
-    maximum=700
-):
-
-    if not lines:
-        return ""
-
-    message = f"{emoji} **{title}**\n"
-
-    total = len(message)
-
-    for line in lines:
-
-        item = f"• {line}\n"
-
-        if total + len(item) > maximum:
-
-            message += "• ...\n"
-            break
-
-        message += item
-        total += len(item)
-
-    return message + "\n"
-
+# =========================================================
 
 def send_discord(message):
 
     if not WEBHOOK_URL:
 
         raise RuntimeError(
-            "Le secret DISCORD_WEBHOOK est absent."
+            "DISCORD_WEBHOOK absent."
         )
 
     chunks = []
@@ -515,16 +683,22 @@ def send_discord(message):
         )
 
         if position <= 0:
+
             position = 1900
 
         chunks.append(
             message[:position]
         )
 
-        message = message[position:].lstrip()
+        message = message[
+            position:
+        ].lstrip()
 
     if message:
-        chunks.append(message)
+
+        chunks.append(
+            message
+        )
 
     for chunk in chunks:
 
@@ -540,9 +714,16 @@ def send_discord(message):
         response.raise_for_status()
 
 
+# =========================================================
+# MÉMOIRE
+# =========================================================
+
 def get_last_patch():
 
-    if not os.path.exists(STATE_FILE):
+    if not os.path.exists(
+        STATE_FILE
+    ):
+
         return ""
 
     with open(
@@ -562,27 +743,35 @@ def save_last_patch():
         encoding="utf-8"
     ) as file:
 
-        file.write(PATCH_URL)
+        file.write(
+            PATCH_URL
+        )
 
 
-# ---------------------------------------------------------
-# MAIN
-# ---------------------------------------------------------
+# =========================================================
+# PROGRAMME
+# =========================================================
 
 def main():
 
-    print("🔎 Lecture des notes Warzone...")
+    print(
+        "🔎 Lecture du patch Warzone..."
+    )
 
-    html = get_page(PATCH_URL)
+    html = get_page(
+        PATCH_URL
+    )
 
-    lines = get_content(html)
+    lines = extract_lines(
+        html
+    )
 
-    weapon_section = find_weapon_section(
+    weapon_lines = get_weapon_section(
         lines
     )
 
     print(
-        f"🔫 {len(weapon_section)} éléments trouvés."
+        f"🔫 {len(weapon_lines)} lignes armes."
     )
 
     last_patch = get_last_patch()
@@ -595,8 +784,8 @@ def main():
 
         return
 
-    buffs, nerfs, corrections = extract_changes(
-        weapon_section
+    buffs, nerfs = extract_changes(
+        weapon_lines
     )
 
     print(
@@ -607,32 +796,45 @@ def main():
         f"🔴 Nerfs : {len(nerfs)}"
     )
 
-    print(
-        f"🛠️ Corrections : {len(corrections)}"
-    )
-
     message = (
         "🇫🇷 **CALL OF DUTY — WARZONE**\n"
         "━━━━━━━━━━━━━━━━━━━━\n\n"
     )
 
-    message += format_section(
-        "BUFFS",
-        "🟢",
-        buffs
-    )
+    if buffs:
 
-    message += format_section(
-        "NERFS",
-        "🔴",
-        nerfs
-    )
+        message += (
+            "🟢 **BUFFS**\n"
+        )
 
-    message += format_section(
-        "CORRECTIONS",
-        "🛠️",
-        corrections
-    )
+        for item in buffs[:15]:
+
+            message += (
+                f"• {item}\n"
+            )
+
+        message += "\n"
+
+    if nerfs:
+
+        message += (
+            "🔴 **NERFS**\n"
+        )
+
+        for item in nerfs[:15]:
+
+            message += (
+                f"• {item}\n"
+            )
+
+        message += "\n"
+
+    if not buffs and not nerfs:
+
+        message += (
+            "⚠️ Aucun changement d'arme "
+            "détecté.\n\n"
+        )
 
     message += (
         "📅 **Saison 05 Reloaded**\n\n"
@@ -640,14 +842,17 @@ def main():
         f"{PATCH_URL}"
     )
 
-    send_discord(message)
+    send_discord(
+        message
+    )
 
     save_last_patch()
 
     print(
-        "✅ Message envoyé sur Discord."
+        "✅ Message Discord envoyé."
     )
 
 
 if __name__ == "__main__":
+
     main()
