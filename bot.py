@@ -16,7 +16,7 @@ PATCH_URL = (
 )
 
 HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+    "User-Agent": "Mozilla/5.0"
 }
 
 
@@ -50,6 +50,7 @@ WEAPONS = [
 # ============================================================
 
 TRANSLATIONS = {
+
     "Bullet Velocity": "Vitesse des projectiles",
     "bullet velocity": "Vitesse des projectiles",
 
@@ -72,8 +73,13 @@ TRANSLATIONS = {
     "Headshot Multiplier": "Multiplicateur de dégâts à la tête",
     "Headshot multiplier": "Multiplicateur de dégâts à la tête",
 
-    "Upper Torso": "Haut du torse",
-    "Upper Body": "Haut du corps",
+    "Headshot": "Tir à la tête",
+    "headshot": "tir à la tête",
+
+    "Upper Torso": "haut du torse",
+    "Upper Body": "haut du corps",
+    "upper torso": "haut du torse",
+    "upper body": "haut du corps",
 
     "Benefit": "Bonus",
     "benefit": "bonus",
@@ -141,7 +147,10 @@ def translate(text):
         key=lambda x: len(x[0]),
         reverse=True
     ):
-        text = text.replace(english, french)
+        text = text.replace(
+            english,
+            french
+        )
 
     return clean(text)
 
@@ -152,7 +161,7 @@ def translate(text):
 
 def format_numbers(text):
 
-    # 910m/s to 920m/s
+    # m/s
     text = re.sub(
         r"(\d+(?:\.\d+)?)\s*(m/s|%)\s*"
         r"(?:to|à)\s*"
@@ -162,16 +171,18 @@ def format_numbers(text):
         flags=re.I
     )
 
-    # de 910 m/s à 920 m/s
+    # de X à Y
     text = re.sub(
-        r"de\s+(\d+(?:\.\d+)?)\s*(m/s|%)\s+"
-        r"à\s+(\d+(?:\.\d+)?)\s*(m/s|%)",
+        r"de\s+"
+        r"(\d+(?:\.\d+)?)\s*(m/s|%)\s+"
+        r"à\s+"
+        r"(\d+(?:\.\d+)?)\s*(m/s|%)",
         r"\1 \2 → \3 \4",
         text,
         flags=re.I
     )
 
-    # 2m to 2.5m
+    # mètres
     text = re.sub(
         r"(?:from|de)\s+"
         r"(\d+(?:\.\d+)?)\s*m\s+"
@@ -182,7 +193,7 @@ def format_numbers(text):
         flags=re.I
     )
 
-    # 1.1x to 1.2x
+    # multiplicateurs
     text = re.sub(
         r"(?:from|de)\s+"
         r"(\d+(?:\.\d+)?)x\s+"
@@ -193,7 +204,7 @@ def format_numbers(text):
         flags=re.I
     )
 
-    # 32 to 34
+    # nombres simples
     text = re.sub(
         r"(?:from|de)\s+"
         r"(\d+(?:\.\d+)?)\s+"
@@ -208,7 +219,7 @@ def format_numbers(text):
 
 
 # ============================================================
-# FORMATAGE FINAL D'UNE MODIFICATION
+# FORMATAGE FINAL
 # ============================================================
 
 def format_change(text):
@@ -224,9 +235,6 @@ def format_change(text):
         "Tir à la tête Multiplicateur":
             "Multiplicateur de dégâts à la tête",
 
-        "headshot multiplier":
-            "Multiplicateur de dégâts à la tête",
-
         "ADS Dégâts Dégâts maximum":
             "Dégâts maximum en ADS",
 
@@ -239,26 +247,33 @@ def format_change(text):
         "Mid 1 Portée des dégâts":
             "Portée intermédiaire des dégâts",
 
+        "headshot et upper torse dégâts":
+            "dégâts aux tirs à la tête et au haut du torse",
+
+        "headshot et haut du torse dégâts":
+            "dégâts aux tirs à la tête et au haut du torse",
+
         "damage":
-            "dégâts",
-
-        "from":
-            "de",
-
-        " to ":
-            " → "
+            "dégâts"
     }
 
     for old, new in replacements.items():
-        text = text.replace(old, new)
+        text = text.replace(
+            old,
+            new
+        )
 
-    text = re.sub(r"\s+", " ", text)
+    text = re.sub(
+        r"\s+",
+        " ",
+        text
+    )
 
     return text.strip()
 
 
 # ============================================================
-# DÉTECTION ARME
+# DÉTECTION DE L'ARME
 # ============================================================
 
 def detect_weapon(text):
@@ -270,6 +285,7 @@ def detect_weapon(text):
         key=len,
         reverse=True
     ):
+
         if weapon in upper:
             return weapon
 
@@ -277,7 +293,7 @@ def detect_weapon(text):
 
 
 # ============================================================
-# DESCRIPTION À IGNORER
+# DESCRIPTIONS À IGNORER
 # ============================================================
 
 def is_description(text):
@@ -302,7 +318,7 @@ def is_description(text):
 
 
 # ============================================================
-# LIGNE DE TABLEAU À IGNORER
+# VALEURS DE TABLEAUX À IGNORER
 # ============================================================
 
 def is_table_value(text):
@@ -311,7 +327,12 @@ def is_table_value(text):
 
     if not any(
         x in text
-        for x in ["⇧", "⇩", "↑", "↓"]
+        for x in [
+            "⇧",
+            "⇩",
+            "↑",
+            "↓"
+        ]
     ):
         return False
 
@@ -332,9 +353,6 @@ def is_table_value(text):
 
 # ============================================================
 # CLASSIFICATION
-#
-# IMPORTANT :
-# Une modification ne peut être que BUFF OU NERF.
 # ============================================================
 
 def classify(text):
@@ -342,12 +360,12 @@ def classify(text):
     lower = text.lower()
 
     # --------------------------------------------------------
-    # 1. MALUS
+    # MALUS
     # --------------------------------------------------------
 
     if "malus" in lower:
 
-        # Diminuer un malus = BUFF
+        # Diminution du malus = BUFF
         if any(x in lower for x in [
             "diminué",
             "réduit",
@@ -356,7 +374,7 @@ def classify(text):
         ]):
             return "buff"
 
-        # Augmenter un malus = NERF
+        # Augmentation du malus = NERF
         if any(x in lower for x in [
             "augmenté",
             "increased"
@@ -364,7 +382,7 @@ def classify(text):
             return "nerf"
 
     # --------------------------------------------------------
-    # 2. BONUS
+    # BONUS
     # --------------------------------------------------------
 
     if any(x in lower for x in [
@@ -384,7 +402,7 @@ def classify(text):
         return "nerf"
 
     # --------------------------------------------------------
-    # 3. RECUL
+    # RECUL
     # --------------------------------------------------------
 
     if any(x in lower for x in [
@@ -409,7 +427,7 @@ def classify(text):
             return "nerf"
 
     # --------------------------------------------------------
-    # 4. DÉGÂTS
+    # DÉGÂTS
     # --------------------------------------------------------
 
     if any(x in lower for x in [
@@ -435,7 +453,7 @@ def classify(text):
             return "nerf"
 
     # --------------------------------------------------------
-    # 5. VITESSE PROJECTILES
+    # VITESSE PROJECTILES
     # --------------------------------------------------------
 
     if any(x in lower for x in [
@@ -460,7 +478,7 @@ def classify(text):
             return "nerf"
 
     # --------------------------------------------------------
-    # 6. PORTÉE
+    # PORTÉE
     # --------------------------------------------------------
 
     if any(x in lower for x in [
@@ -481,26 +499,6 @@ def classify(text):
             "diminué",
             "reduced",
             "decreased"
-        ]):
-            return "nerf"
-
-    # --------------------------------------------------------
-    # 7. ADS
-    # --------------------------------------------------------
-
-    if "ads" in lower:
-
-        if any(x in lower for x in [
-            "réduit",
-            "diminué",
-            "reduced",
-            "decreased"
-        ]):
-            return "buff"
-
-        if any(x in lower for x in [
-            "augmenté",
-            "increased"
         ]):
             return "nerf"
 
@@ -558,7 +556,7 @@ def extract_lines(html):
             ]
         )
 
-    result = []
+    lines = []
 
     for element in elements:
 
@@ -570,13 +568,13 @@ def extract_lines(html):
         )
 
         if text:
-            result.append(text)
+            lines.append(text)
 
-    return result
+    return lines
 
 
 # ============================================================
-# EXTRACTION DES MODIFICATIONS
+# EXTRACTION
 # ============================================================
 
 def extract_changes(lines):
@@ -612,7 +610,7 @@ def extract_changes(lines):
 
         text = format_change(line)
 
-        # Retirer le nom de l'arme du texte
+        # Retirer le nom de l'arme
         for weapon_name in WEAPONS:
 
             if text.upper().startswith(
@@ -626,13 +624,6 @@ def extract_changes(lines):
                 break
 
         if not text:
-            continue
-
-        # Ligne composée uniquement de chiffres
-        if re.fullmatch(
-            r"[\d\s\-\>\<\.m⇧⇩↑↓]+",
-            text
-        ):
             continue
 
         item = (
@@ -650,7 +641,38 @@ def extract_changes(lines):
 
 
 # ============================================================
-# NETTOYAGE DES DOUBLONS
+# NORMALISATION POUR COMPARAISON
+# ============================================================
+
+def normalize(text):
+
+    text = text.lower()
+
+    text = text.replace(
+        " ",
+        ""
+    )
+
+    text = text.replace(
+        "→",
+        "to"
+    )
+
+    text = text.replace(
+        "de",
+        ""
+    )
+
+    text = text.replace(
+        "à",
+        ""
+    )
+
+    return text
+
+
+# ============================================================
+# SUPPRESSION DES DOUBLONS
 # ============================================================
 
 def remove_duplicates(items):
@@ -662,11 +684,7 @@ def remove_duplicates(items):
 
         key = (
             weapon.lower(),
-            re.sub(
-                r"\s+",
-                " ",
-                change.lower()
-            ).strip()
+            normalize(change)
         )
 
         if key in seen:
@@ -675,19 +693,79 @@ def remove_duplicates(items):
         seen.add(key)
 
         result.append(
-            (weapon, change)
+            (
+                weapon,
+                change
+            )
         )
 
     return result
 
 
 # ============================================================
-# SUPPRESSION DES DOUBLONS COURTS
+# RÈGLE IMPORTANTE :
+#
+# UNE MODIFICATION IDENTIQUE NE PEUT PAS ÊTRE
+# À LA FOIS BUFF ET NERF.
+#
+# PRIORITÉ AU BUFF.
+# ============================================================
+
+def remove_cross_duplicates(
+    buffs,
+    nerfs
+):
+
+    buffs = remove_duplicates(
+        buffs
+    )
+
+    nerfs = remove_duplicates(
+        nerfs
+    )
+
+    buff_keys = set()
+
+    for weapon, change in buffs:
+
+        buff_keys.add(
+            (
+                weapon.lower(),
+                normalize(change)
+            )
+        )
+
+    clean_nerfs = []
+
+    for weapon, change in nerfs:
+
+        key = (
+            weapon.lower(),
+            normalize(change)
+        )
+
+        if key in buff_keys:
+            continue
+
+        clean_nerfs.append(
+            (
+                weapon,
+                change
+            )
+        )
+
+    return buffs, clean_nerfs
+
+
+# ============================================================
+# SUPPRESSION DES LIGNES REDONDANTES
 # ============================================================
 
 def remove_redundant(items):
 
-    items = remove_duplicates(items)
+    items = remove_duplicates(
+        items
+    )
 
     result = []
 
@@ -695,35 +773,41 @@ def remove_redundant(items):
 
         duplicate = False
 
-        for existing_weapon, existing_change in result:
+        for old_weapon, old_change in result:
 
-            if weapon != existing_weapon:
+            if weapon != old_weapon:
                 continue
 
-            a = change.lower().strip()
-            b = existing_change.lower().strip()
+            a = normalize(
+                change
+            )
 
-            # Exactement la même chose
+            b = normalize(
+                old_change
+            )
+
             if a == b:
                 duplicate = True
                 break
 
-            # Une ligne courte est déjà contenue
-            # dans une ligne complète
             if len(a) < len(b) and a in b:
                 duplicate = True
                 break
 
         if not duplicate:
+
             result.append(
-                (weapon, change)
+                (
+                    weapon,
+                    change
+                )
             )
 
     return result
 
 
 # ============================================================
-# REGROUPEMENT
+# REGROUPEMENT PAR ARME
 # ============================================================
 
 def group(items):
@@ -736,7 +820,9 @@ def group(items):
             result[weapon] = []
 
         if change not in result[weapon]:
-            result[weapon].append(change)
+            result[weapon].append(
+                change
+            )
 
     return result
 
@@ -745,13 +831,34 @@ def group(items):
 # MESSAGE DISCORD
 # ============================================================
 
-def build_message(buffs, nerfs):
+def build_message(
+    buffs,
+    nerfs
+):
 
-    buffs = remove_redundant(buffs)
-    nerfs = remove_redundant(nerfs)
+    # Nettoyage
+    buffs = remove_redundant(
+        buffs
+    )
 
-    buff_groups = group(buffs)
-    nerf_groups = group(nerfs)
+    nerfs = remove_redundant(
+        nerfs
+    )
+
+    # Suppression des doublons entre
+    # BUFF et NERF
+    buffs, nerfs = remove_cross_duplicates(
+        buffs,
+        nerfs
+    )
+
+    buff_groups = group(
+        buffs
+    )
+
+    nerf_groups = group(
+        nerfs
+    )
 
     message = (
         "🇫🇷 **CALL OF DUTY — WARZONE**\n"
@@ -764,7 +871,9 @@ def build_message(buffs, nerfs):
 
     if buff_groups:
 
-        message += "🟢 **BUFFS**\n\n"
+        message += (
+            "🟢 **BUFFS**\n\n"
+        )
 
         for weapon, changes in buff_groups.items():
 
@@ -786,7 +895,9 @@ def build_message(buffs, nerfs):
 
     if nerf_groups:
 
-        message += "🔴 **NERFS**\n\n"
+        message += (
+            "🔴 **NERFS**\n\n"
+        )
 
         for weapon, changes in nerf_groups.items():
 
@@ -820,10 +931,9 @@ def send_discord(message):
     if not WEBHOOK_URL:
 
         raise RuntimeError(
-            "DISCORD_WEBHOOK n'est pas configuré."
+            "La variable DISCORD_WEBHOOK est introuvable."
         )
 
-    # Discord limite les messages à 2000 caractères.
     chunks = []
 
     while len(message) > 1900:
@@ -846,7 +956,9 @@ def send_discord(message):
         ].lstrip()
 
     if message:
-        chunks.append(message)
+        chunks.append(
+            message
+        )
 
     for chunk in chunks:
 
@@ -869,7 +981,7 @@ def send_discord(message):
 def main():
 
     print(
-        "🔎 Recherche des notes de correctif..."
+        "🔎 Recherche du patch Call of Duty..."
     )
 
     response = requests.get(
@@ -881,7 +993,7 @@ def main():
     response.raise_for_status()
 
     print(
-        "✅ Page Call of Duty récupérée."
+        "✅ Page récupérée."
     )
 
     lines = extract_lines(
@@ -897,11 +1009,11 @@ def main():
     )
 
     print(
-        f"🟢 Buffs : {len(buffs)}"
+        f"🟢 Buffs détectés : {len(buffs)}"
     )
 
     print(
-        f"🔴 Nerfs : {len(nerfs)}"
+        f"🔴 Nerfs détectés : {len(nerfs)}"
     )
 
     message = build_message(
@@ -913,7 +1025,9 @@ def main():
         "\n========== MESSAGE ==========\n"
     )
 
-    print(message)
+    print(
+        message
+    )
 
     print(
         "\n=============================\n"
@@ -924,7 +1038,7 @@ def main():
     )
 
     print(
-        "✅ Message envoyé sur Discord."
+        "✅ Patch envoyé sur Discord !"
     )
 
 
