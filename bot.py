@@ -9,11 +9,18 @@ from bs4 import BeautifulSoup
 
 WEBHOOK_URL = os.environ.get("DISCORD_WEBHOOK")
 
-PATCH_URL = "https://www.callofduty.com/patchnotes/2026/08/call-of-duty-bo7-warzone-season-05-reloaded-patch-notes"
+PATCH_URL = (
+    "https://www.callofduty.com/patchnotes/2026/08/"
+    "call-of-duty-bo7-warzone-season-05-reloaded-patch-notes"
+)
 
 HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131.0 Safari/537.36"
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 Chrome/131.0 Safari/537.36"
+    )
 }
+
 
 # ============================================================
 # ARMES
@@ -39,6 +46,7 @@ WEAPONS = [
     "PEACEKEEPER MK1"
 ]
 
+
 # ============================================================
 # TRADUCTIONS
 # ============================================================
@@ -48,24 +56,39 @@ TRANSLATIONS = {
     "bullet velocity": "Vitesse des projectiles",
 
     "Vertical Recoil": "Recul vertical",
+    "vertical recoil": "Recul vertical",
+
     "Horizontal Recoil": "Recul horizontal",
+    "horizontal recoil": "Recul horizontal",
+
     "Recoil Control": "Contrôle du recul",
+    "recoil control": "Contrôle du recul",
+
     "Recoil": "Recul",
+    "recoil": "Recul",
 
     "Gunkick": "Recul de visée",
     "gunkick": "Recul de visée",
+
     "Viewkick": "Recul de caméra",
     "viewkick": "Recul de caméra",
 
     "ADS Speed": "Vitesse ADS",
+    "ADS speed": "Vitesse ADS",
+
     "Aim Down Sight Speed": "Vitesse ADS",
 
     "Damage Range": "Portée des dégâts",
     "damage range": "Portée des dégâts",
 
     "Max Damage": "Dégâts maximum",
+    "max damage": "Dégâts maximum",
+
     "Minimum Damage": "Dégâts minimum",
+    "minimum damage": "Dégâts minimum",
+
     "Damage": "Dégâts",
+    "damage": "Dégâts",
 
     "Headshot Multiplier": "Multiplicateur de dégâts à la tête",
     "Headshot multiplier": "Multiplicateur de dégâts à la tête",
@@ -74,8 +97,9 @@ TRANSLATIONS = {
     "headshot": "tir à la tête",
 
     "Upper Torso": "haut du torse",
-    "Upper Body": "haut du corps",
     "upper torso": "haut du torse",
+
+    "Upper Body": "haut du corps",
     "upper body": "haut du corps",
 
     "Benefit": "Bonus",
@@ -111,6 +135,7 @@ TRANSLATIONS = {
     "by": "de"
 }
 
+
 # ============================================================
 # NETTOYAGE
 # ============================================================
@@ -122,7 +147,6 @@ def clean(text):
         "àrso": "torse",
         "Compensaàr": "Compensator",
         "Promonàry": "Promontory",
-        "damage": "dégâts",
     }
 
     for old, new in replacements.items():
@@ -157,7 +181,8 @@ def format_numbers(text):
 
     # Pourcentages
     text = re.sub(
-        r"(\d+(?:\.\d+)?)\s*%\s*(?:à|to)\s*(\d+(?:\.\d+)?)\s*%",
+        r"(\d+(?:\.\d+)?)\s*%\s*(?:à|to)\s*"
+        r"(\d+(?:\.\d+)?)\s*%",
         r"\1 % → \2 %",
         text,
         flags=re.I
@@ -165,7 +190,8 @@ def format_numbers(text):
 
     # m/s
     text = re.sub(
-        r"(\d+(?:\.\d+)?)\s*m/s\s*(?:à|to)\s*(\d+(?:\.\d+)?)\s*m/s",
+        r"(\d+(?:\.\d+)?)\s*m/s\s*(?:à|to)\s*"
+        r"(\d+(?:\.\d+)?)\s*m/s",
         r"\1 m/s → \2 m/s",
         text,
         flags=re.I
@@ -173,7 +199,8 @@ def format_numbers(text):
 
     # mètres
     text = re.sub(
-        r"(\d+(?:\.\d+)?)\s*m\s*(?:à|to)\s*(\d+(?:\.\d+)?)\s*m",
+        r"(\d+(?:\.\d+)?)\s*m\s*(?:à|to)\s*"
+        r"(\d+(?:\.\d+)?)\s*m",
         r"\1 m → \2 m",
         text,
         flags=re.I
@@ -181,7 +208,8 @@ def format_numbers(text):
 
     # multiplicateurs
     text = re.sub(
-        r"(\d+(?:\.\d+)?)x\s*(?:à|to)\s*(\d+(?:\.\d+)?)x",
+        r"(\d+(?:\.\d+)?)x\s*(?:à|to)\s*"
+        r"(\d+(?:\.\d+)?)x",
         r"\1× → \2×",
         text,
         flags=re.I
@@ -189,7 +217,8 @@ def format_numbers(text):
 
     # nombres simples
     text = re.sub(
-        r"(\d+(?:\.\d+)?)\s*(?:à|to)\s*(\d+(?:\.\d+)?)",
+        r"(\d+(?:\.\d+)?)\s*(?:à|to)\s*"
+        r"(\d+(?:\.\d+)?)",
         r"\1 → \2",
         text,
         flags=re.I
@@ -224,10 +253,10 @@ def format_change(text):
         "Mid 1 Portée des dégâts":
             "Portée intermédiaire des dégâts",
 
-        "Headshot multiplier":
+        "Tir à la tête multiplier":
             "Multiplicateur de dégâts à la tête",
 
-        "Tir à la tête multiplier":
+        "Headshot multiplier":
             "Multiplicateur de dégâts à la tête",
 
         "headshot et upper torse dégâts":
@@ -235,9 +264,6 @@ def format_change(text):
 
         "headshot et haut du torse dégâts":
             "dégâts aux tirs à la tête et au haut du torse",
-
-        "damage":
-            "dégâts"
     }
 
     for old, new in replacements.items():
@@ -256,8 +282,11 @@ def detect_weapon(text):
 
     upper = text.upper()
 
-    for weapon in sorted(WEAPONS, key=len, reverse=True):
-
+    for weapon in sorted(
+        WEAPONS,
+        key=len,
+        reverse=True
+    ):
         if weapon.upper() in upper:
             return weapon
 
@@ -283,17 +312,27 @@ def is_description(text):
         "fires two projectiles"
     ]
 
-    return any(word in lower for word in ignored)
+    return any(
+        word in lower
+        for word in ignored
+    )
 
 
 def is_table_value(text):
 
     text = text.strip()
 
-    if not any(x in text for x in ["⇧", "⇩", "↑", "↓"]):
+    if not any(
+        x in text
+        for x in ["⇧", "⇩", "↑", "↓"]
+    ):
         return False
 
-    cleaned = re.sub(r"[⇧⇩↑↓]", "", text).strip()
+    cleaned = re.sub(
+        r"[⇧⇩↑↓]",
+        "",
+        text
+    ).strip()
 
     return bool(
         re.fullmatch(
@@ -312,200 +351,241 @@ def classify(text):
 
     lower = text.lower()
 
-    # --------------------------------------------------------
-    # RÈGLE PRIORITAIRE : MALUS
-    # --------------------------------------------------------
+    # ========================================================
+    # MALUS
+    # ========================================================
 
     # Un malus qui diminue = BUFF
     if "malus" in lower or "penalty" in lower:
 
-        if any(word in lower for word in [
-            "malus diminué",
-            "malus réduit",
-            "malus decrease",
-            "malus decreased",
-            "malus reduced",
-            "penalty diminué",
-            "penalty réduit",
-            "penalty decreased",
-            "penalty reduced"
-        ]):
+        if any(
+            word in lower
+            for word in [
+                "malus diminué",
+                "malus réduit",
+                "malus decreased",
+                "malus reduced",
+                "penalty diminué",
+                "penalty réduit",
+                "penalty decreased",
+                "penalty reduced"
+            ]
+        ):
             return "buff"
 
         # Un malus qui augmente = NERF
-        if any(word in lower for word in [
-            "malus augmenté",
-            "malus augmente",
-            "penalty augmenté",
-            "penalty increased"
-        ]):
+        if any(
+            word in lower
+            for word in [
+                "malus augmenté",
+                "malus augmente",
+                "penalty augmenté",
+                "penalty increased"
+            ]
+        ):
             return "nerf"
 
-    # --------------------------------------------------------
+    # ========================================================
     # BONUS
-    # --------------------------------------------------------
+    # ========================================================
 
-    if any(word in lower for word in [
-        "bonus amélioré",
-        "bonus augmenté",
-        "benefit amélioré",
-        "benefit augmenté"
-    ]):
+    if any(
+        word in lower
+        for word in [
+            "bonus amélioré",
+            "bonus augmenté",
+            "benefit amélioré",
+            "benefit augmenté"
+        ]
+    ):
         return "buff"
 
-    if any(word in lower for word in [
-        "bonus réduit",
-        "bonus diminué",
-        "benefit réduit",
-        "benefit diminué"
-    ]):
+    if any(
+        word in lower
+        for word in [
+            "bonus réduit",
+            "bonus diminué",
+            "benefit réduit",
+            "benefit diminué"
+        ]
+    ):
         return "nerf"
 
-    # --------------------------------------------------------
+    # ========================================================
     # RECUL
-    # --------------------------------------------------------
+    # ========================================================
 
-    if any(word in lower for word in [
-        "recul",
-        "recoil",
-        "gunkick",
-        "viewkick"
-    ]):
+    if any(
+        word in lower
+        for word in [
+            "recul",
+            "recoil",
+            "gunkick",
+            "viewkick"
+        ]
+    ):
 
-        if any(word in lower for word in [
-            "réduit",
-            "réduite",
-            "réduits",
-            "réduites",
-            "diminué",
-            "diminuée",
-            "diminués",
-            "diminuées",
-            "reduced",
-            "decreased"
-        ]):
+        if any(
+            word in lower
+            for word in [
+                "réduit",
+                "réduite",
+                "réduits",
+                "réduites",
+                "diminué",
+                "diminuée",
+                "diminués",
+                "diminuées",
+                "reduced",
+                "decreased"
+            ]
+        ):
             return "buff"
 
-        if any(word in lower for word in [
-            "augmenté",
-            "augmentée",
-            "augmentés",
-            "augmentées",
-            "increased"
-        ]):
+        if any(
+            word in lower
+            for word in [
+                "augmenté",
+                "augmentée",
+                "augmentés",
+                "augmentées",
+                "increased"
+            ]
+        ):
             return "nerf"
 
-    # --------------------------------------------------------
+    # ========================================================
     # VITESSE DES PROJECTILES
-    # --------------------------------------------------------
+    # ========================================================
 
-    if any(word in lower for word in [
-        "vitesse des projectiles",
-        "bullet velocity"
-    ]):
+    if (
+        "vitesse des projectiles" in lower
+        or "bullet velocity" in lower
+    ):
 
-        if any(word in lower for word in [
-            "augmenté",
-            "augmentée",
-            "augmentés",
-            "augmentées",
-            "amélioré",
-            "améliorée",
-            "increased",
-            "improved"
-        ]):
+        if any(
+            word in lower
+            for word in [
+                "augmenté",
+                "augmentée",
+                "augmentés",
+                "augmentées",
+                "amélioré",
+                "améliorée",
+                "increased",
+                "improved"
+            ]
+        ):
             return "buff"
 
-        if any(word in lower for word in [
-            "diminué",
-            "diminuée",
-            "diminués",
-            "diminuées",
-            "réduit",
-            "réduite",
-            "réduits",
-            "réduites",
-            "decreased",
-            "reduced"
-        ]):
+        if any(
+            word in lower
+            for word in [
+                "diminué",
+                "diminuée",
+                "diminués",
+                "diminuées",
+                "réduit",
+                "réduite",
+                "réduits",
+                "réduites",
+                "decreased",
+                "reduced"
+            ]
+        ):
             return "nerf"
 
-    # --------------------------------------------------------
+    # ========================================================
     # DÉGÂTS
-    # --------------------------------------------------------
+    # ========================================================
 
-    if any(word in lower for word in [
-        "dégâts",
-        "damage",
-        "multiplicateur"
-    ]):
+    if any(
+        word in lower
+        for word in [
+            "dégâts",
+            "damage",
+            "multiplicateur"
+        ]
+    ):
 
-        if any(word in lower for word in [
-            "augmenté",
-            "augmentée",
-            "augmentés",
-            "augmentées",
-            "amélioré",
-            "améliorée",
-            "increased",
-            "improved"
-        ]):
+        if any(
+            word in lower
+            for word in [
+                "augmenté",
+                "augmentée",
+                "augmentés",
+                "augmentées",
+                "amélioré",
+                "améliorée",
+                "increased",
+                "improved"
+            ]
+        ):
             return "buff"
 
-        if any(word in lower for word in [
-            "diminué",
-            "diminuée",
-            "diminués",
-            "diminuées",
-            "réduit",
-            "réduite",
-            "réduits",
-            "réduites",
-            "decreased",
-            "reduced"
-        ]):
+        if any(
+            word in lower
+            for word in [
+                "diminué",
+                "diminuée",
+                "diminués",
+                "diminuées",
+                "réduit",
+                "réduite",
+                "réduits",
+                "réduites",
+                "decreased",
+                "reduced"
+            ]
+        ):
             return "nerf"
 
-    # --------------------------------------------------------
+    # ========================================================
     # PORTÉE
-    # --------------------------------------------------------
+    # ========================================================
 
-    if any(word in lower for word in [
-        "portée des dégâts",
-        "damage range"
-    ]):
+    if (
+        "portée des dégâts" in lower
+        or "damage range" in lower
+    ):
 
-        if any(word in lower for word in [
-            "augmenté",
-            "augmentée",
-            "augmentés",
-            "augmentées",
-            "amélioré",
-            "améliorée",
-            "increased",
-            "improved"
-        ]):
+        if any(
+            word in lower
+            for word in [
+                "augmenté",
+                "augmentée",
+                "augmentés",
+                "augmentées",
+                "amélioré",
+                "améliorée",
+                "increased",
+                "improved"
+            ]
+        ):
             return "buff"
 
-        if any(word in lower for word in [
-            "diminué",
-            "diminuée",
-            "diminués",
-            "diminuées",
-            "réduit",
-            "réduite",
-            "réduits",
-            "réduites",
-            "decreased",
-            "reduced"
-        ]):
+        if any(
+            word in lower
+            for word in [
+                "diminué",
+                "diminuée",
+                "diminués",
+                "diminuées",
+                "réduit",
+                "réduite",
+                "réduits",
+                "réduites",
+                "decreased",
+                "reduced"
+            ]
+        ):
             return "nerf"
 
     return None
 
 
 # ============================================================
-# EXTRACTION DE LA PAGE
+# EXTRACTION HTML
 # ============================================================
 
 def extract_lines(html):
@@ -530,11 +610,29 @@ def extract_lines(html):
 
     if main:
         elements = main.find_all(
-            ["h1", "h2", "h3", "h4", "p", "li", "td", "th"]
+            [
+                "h1",
+                "h2",
+                "h3",
+                "h4",
+                "p",
+                "li",
+                "td",
+                "th"
+            ]
         )
     else:
         elements = soup.find_all(
-            ["h1", "h2", "h3", "h4", "p", "li", "td", "th"]
+            [
+                "h1",
+                "h2",
+                "h3",
+                "h4",
+                "p",
+                "li",
+                "td",
+                "th"
+            ]
         )
 
     lines = []
@@ -591,14 +689,16 @@ def extract_changes(lines):
 
         text = format_change(line)
 
-        # Retire le nom de l'arme du début
+        # Retirer le nom de l'arme
         for weapon_name in WEAPONS:
 
             if text.upper().startswith(
                 weapon_name.upper()
             ):
 
-                text = text[len(weapon_name):].strip()
+                text = text[
+                    len(weapon_name):
+                ].strip()
 
                 break
 
@@ -606,10 +706,14 @@ def extract_changes(lines):
             continue
 
         if category == "buff":
-            buffs.append((current_weapon, text))
+            buffs.append(
+                (current_weapon, text)
+            )
 
         elif category == "nerf":
-            nerfs.append((current_weapon, text))
+            nerfs.append(
+                (current_weapon, text)
+            )
 
     return buffs, nerfs
 
@@ -622,29 +726,48 @@ def normalize(text):
 
     text = text.lower()
 
-    # IMPORTANT :
-    # "réduit" et "diminué" doivent être identiques
-    text = text.replace("réduit", "diminué")
-    text = text.replace("réduite", "diminuée")
-    text = text.replace("réduits", "diminués")
-    text = text.replace("réduites", "diminuées")
+    # Réduit = diminué pour la comparaison
+    text = text.replace(
+        "réduit",
+        "diminué"
+    )
 
-    text = text.replace("reduced", "diminué")
-    text = text.replace("decreased", "diminué")
+    text = text.replace(
+        "réduite",
+        "diminuée"
+    )
 
-    # Uniformisation
-    text = text.replace(" ", "")
-    text = text.replace("→", "")
-    text = text.replace("de", "")
-    text = text.replace("à", "")
-    text = text.replace("from", "")
-    text = text.replace("to", "")
+    text = text.replace(
+        "réduits",
+        "diminués"
+    )
+
+    text = text.replace(
+        "réduites",
+        "diminuées"
+    )
+
+    text = text.replace(
+        "reduced",
+        "diminué"
+    )
+
+    text = text.replace(
+        "decreased",
+        "diminué"
+    )
+
+    # Espaces
+    text = text.replace(
+        " ",
+        ""
+    )
 
     return text
 
 
 # ============================================================
-# SUPPRESSION DES DOUBLONS
+# DOUBLONS
 # ============================================================
 
 def remove_duplicates(items):
@@ -672,7 +795,7 @@ def remove_duplicates(items):
 
 
 # ============================================================
-# SUPPRESSION BUFF / NERF EN DOUBLE
+# BUFF / NERF EN DOUBLE
 # ============================================================
 
 def remove_cross_duplicates(
@@ -683,13 +806,16 @@ def remove_cross_duplicates(
     buffs = remove_duplicates(buffs)
     nerfs = remove_duplicates(nerfs)
 
-    buff_keys = {
-        (
-            weapon.lower(),
-            normalize(change)
+    buff_keys = set()
+
+    for weapon, change in buffs:
+
+        buff_keys.add(
+            (
+                weapon.lower(),
+                normalize(change)
+            )
         )
-        for weapon, change in buffs
-    }
 
     final_nerfs = []
 
@@ -711,94 +837,98 @@ def remove_cross_duplicates(
 
 
 # ============================================================
-# SUPPRESSION DES LIGNES REDONDANTES
+# ACCESSOIRES À CONSERVER AVEC LEUR MODIFICATION
 # ============================================================
 
-def remove_redundant(items):
+ATTACHMENT_PATTERNS = [
+    r'\d+(?:\.\d+)?".*?Barrel',
+    r'\d+(?:\.\d+)?".*?Grip',
+    r'\d+(?:\.\d+)?".*?Compensator',
+    r'\d+(?:\.\d+)?".*?Stock',
+    r'\d+(?:\.\d+)?".*?Magazine',
+    r'\d+(?:\.\d+)?".*?Suppressor',
+    r'\d+(?:\.\d+)?".*?Muzzle',
+    r'\.300 WM Overpressured',
+    r'5\.56 NATO FMJ',
+    r'12 Gauge Slug',
+    r'Argus Lever'
+]
 
-    items = remove_duplicates(items)
 
-    result = []
+def is_attachment_start(text):
 
-    for weapon, change in items:
+    text = text.strip()
 
-        current = normalize(change)
+    for pattern in ATTACHMENT_PATTERNS:
 
-        duplicate = False
+        if re.match(
+            pattern,
+            text,
+            re.I
+        ):
+            return True
 
-        for old_weapon, old_change in result:
-
-            if weapon != old_weapon:
-                continue
-
-            old = normalize(old_change)
-
-            if current == old:
-                duplicate = True
-                break
-
-        if not duplicate:
-            result.append(
-                (weapon, change)
-            )
-
-    return result
+    return False
 
 
 # ============================================================
-# SÉPARATION DES MODIFICATIONS
+# SÉPARATION INTELLIGENTE
 # ============================================================
 
 def split_multiple_changes(text):
 
-    # On ajoute une séparation avant les nouveaux
-    # paramètres lorsqu'ils sont collés ensemble.
+    text = text.strip()
 
-    keywords = [
-        " Vitesse des projectiles ",
-        " Portée intermédiaire des dégâts ",
-        " Portée maximale des dégâts ",
-        " Portée des dégâts ",
-        " Recul vertical ",
-        " Recul horizontal ",
-        " Contrôle du recul ",
-        " Recul de visée ",
-        " Recul de caméra ",
-        " Dégâts maximum ",
-        " Dégâts intermédiaires ",
-        " Multiplicateur de dégâts "
+    # --------------------------------------------------------
+    # IMPORTANT :
+    # On ne coupe JAMAIS les noms d'accessoires.
+    # --------------------------------------------------------
+
+    # Cas :
+    # "15" Benthic Barrel Recul ... Vitesse ..."
+    #
+    # doit rester UNE seule puce.
+
+    # --------------------------------------------------------
+    # On ne sépare que lorsqu'un NOUVEAU paramètre
+    # commence APRÈS une modification complète.
+    # --------------------------------------------------------
+
+    patterns = [
+        r"\s+(?=Portée intermédiaire des dégâts\s+bonus)",
+        r"\s+(?=Portée maximale des dégâts\s+)",
+        r"\s+(?=Multiplicateur de dégâts à la tête\s+)",
     ]
 
     parts = [text]
 
-    for keyword in keywords:
+    for pattern in patterns:
 
         new_parts = []
 
         for part in parts:
 
-            split = part.split(keyword)
+            split = re.split(
+                pattern,
+                part,
+                flags=re.I
+            )
 
             if len(split) == 1:
                 new_parts.append(part)
-                continue
+            else:
 
-            first = split[0].strip()
+                first = split[0].strip()
 
-            if first:
-                new_parts.append(first)
+                if first:
+                    new_parts.append(first)
 
-            for extra in split[1:]:
+                for extra in split[1:]:
 
-                extra = (
-                    keyword.strip()
-                    + " "
-                    + extra.strip()
-                )
-
-                new_parts.append(
-                    extra.strip()
-                )
+                    if extra.strip():
+                        new_parts.append(
+                            extra.strip()
+                        )
 
         parts = new_parts
 
@@ -829,13 +959,16 @@ def group(items):
         for part in parts:
 
             if part not in result[weapon]:
-                result[weapon].append(part)
+
+                result[weapon].append(
+                    part
+                )
 
     return result
 
 
 # ============================================================
-# CONSTRUCTION DU MESSAGE DISCORD
+# CONSTRUCTION DU MESSAGE
 # ============================================================
 
 def build_message(
@@ -843,18 +976,26 @@ def build_message(
     nerfs
 ):
 
-    buffs = remove_redundant(buffs)
-    nerfs = remove_redundant(nerfs)
+    buffs = remove_duplicates(
+        buffs
+    )
 
-    # Une même modification ne peut pas être
-    # simultanément BUFF et NERF.
+    nerfs = remove_duplicates(
+        nerfs
+    )
+
     buffs, nerfs = remove_cross_duplicates(
         buffs,
         nerfs
     )
 
-    buff_groups = group(buffs)
-    nerf_groups = group(nerfs)
+    buff_groups = group(
+        buffs
+    )
+
+    nerf_groups = group(
+        nerfs
+    )
 
     message = (
         "🇫🇷 **CALL OF DUTY — WARZONE**\n"
@@ -867,14 +1008,21 @@ def build_message(
 
     if buff_groups:
 
-        message += "🟢 **BUFFS**\n\n"
+        message += (
+            "🟢 **BUFFS**\n\n"
+        )
 
         for weapon, changes in buff_groups.items():
 
-            message += f"**{weapon}**\n"
+            message += (
+                f"**{weapon}**\n"
+            )
 
             for change in changes:
-                message += f"• {change}\n"
+
+                message += (
+                    f"• {change}\n"
+                )
 
             message += "\n"
 
@@ -884,14 +1032,21 @@ def build_message(
 
     if nerf_groups:
 
-        message += "🔴 **NERFS**\n\n"
+        message += (
+            "🔴 **NERFS**\n\n"
+        )
 
         for weapon, changes in nerf_groups.items():
 
-            message += f"**{weapon}**\n"
+            message += (
+                f"**{weapon}**\n"
+            )
 
             for change in changes:
-                message += f"• {change}\n"
+
+                message += (
+                    f"• {change}\n"
+                )
 
             message += "\n"
 
@@ -920,7 +1075,6 @@ def send_discord(message):
             "La variable DISCORD_WEBHOOK est introuvable."
         )
 
-    # Discord limite les messages à 2000 caractères.
     chunks = []
 
     while len(message) > 1900:
@@ -938,10 +1092,14 @@ def send_discord(message):
             message[:position]
         )
 
-        message = message[position:].lstrip()
+        message = message[
+            position:
+        ].lstrip()
 
     if message:
-        chunks.append(message)
+        chunks.append(
+            message
+        )
 
     for chunk in chunks:
 
@@ -963,7 +1121,9 @@ def send_discord(message):
 
 def main():
 
-    print("🔎 Recherche du patch Call of Duty...")
+    print(
+        "🔎 Recherche du patch Call of Duty..."
+    )
 
     response = requests.get(
         PATCH_URL,
@@ -973,7 +1133,9 @@ def main():
 
     response.raise_for_status()
 
-    print("✅ Page récupérée.")
+    print(
+        "✅ Page récupérée."
+    )
 
     lines = extract_lines(
         response.text
@@ -1010,7 +1172,9 @@ def main():
         "\n=============================\n"
     )
 
-    send_discord(message)
+    send_discord(
+        message
+    )
 
     print(
         "✅ Patch envoyé sur Discord !"
