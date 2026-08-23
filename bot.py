@@ -50,7 +50,6 @@ WEAPONS = [
 # ============================================================
 
 TRANSLATIONS = {
-
     "Bullet Velocity": "Vitesse des projectiles",
     "bullet velocity": "Vitesse des projectiles",
 
@@ -161,7 +160,7 @@ def translate(text):
 
 def format_numbers(text):
 
-    # m/s
+    # m/s et pourcentages
     text = re.sub(
         r"(\d+(?:\.\d+)?)\s*(m/s|%)\s*"
         r"(?:to|à)\s*"
@@ -171,7 +170,7 @@ def format_numbers(text):
         flags=re.I
     )
 
-    # de X à Y
+    # "de X à Y"
     text = re.sub(
         r"de\s+"
         r"(\d+(?:\.\d+)?)\s*(m/s|%)\s+"
@@ -252,9 +251,6 @@ def format_change(text):
 
         "headshot et haut du torse dégâts":
             "dégâts aux tirs à la tête et au haut du torse",
-
-        "damage":
-            "dégâts"
     }
 
     for old, new in replacements.items():
@@ -327,12 +323,7 @@ def is_table_value(text):
 
     if not any(
         x in text
-        for x in [
-            "⇧",
-            "⇩",
-            "↑",
-            "↓"
-        ]
+        for x in ["⇧", "⇩", "↑", "↓"]
     ):
         return False
 
@@ -352,7 +343,7 @@ def is_table_value(text):
 
 
 # ============================================================
-# CLASSIFICATION
+# CLASSIFICATION BUFF / NERF
 # ============================================================
 
 def classify(text):
@@ -396,8 +387,8 @@ def classify(text):
     if any(x in lower for x in [
         "bonus diminué",
         "bonus réduit",
-        "benefit reduced",
-        "benefit decreased"
+        "benefit réduit",
+        "benefit diminué"
     ]):
         return "nerf"
 
@@ -574,7 +565,7 @@ def extract_lines(html):
 
 
 # ============================================================
-# EXTRACTION
+# EXTRACTION DES MODIFICATIONS
 # ============================================================
 
 def extract_changes(lines):
@@ -648,14 +639,47 @@ def normalize(text):
 
     text = text.lower()
 
+    # Réduit et diminué = même sens
     text = text.replace(
-        " ",
+        "réduit",
+        "diminué"
+    )
+
+    text = text.replace(
+        "réduite",
+        "diminuée"
+    )
+
+    text = text.replace(
+        "réduits",
+        "diminués"
+    )
+
+    text = text.replace(
+        "réduites",
+        "diminuées"
+    )
+
+    # Anglais
+    text = text.replace(
+        "reduced",
+        "diminué"
+    )
+
+    text = text.replace(
+        "decreased",
+        "diminué"
+    )
+
+    # Suppression des mots de liaison
+    text = text.replace(
+        "from",
         ""
     )
 
     text = text.replace(
-        "→",
-        "to"
+        "to",
+        ""
     )
 
     text = text.replace(
@@ -668,11 +692,21 @@ def normalize(text):
         ""
     )
 
+    text = text.replace(
+        " ",
+        ""
+    )
+
+    text = text.replace(
+        "→",
+        ""
+    )
+
     return text
 
 
 # ============================================================
-# SUPPRESSION DES DOUBLONS
+# DOUBLONS
 # ============================================================
 
 def remove_duplicates(items):
@@ -703,12 +737,7 @@ def remove_duplicates(items):
 
 
 # ============================================================
-# RÈGLE IMPORTANTE :
-#
-# UNE MODIFICATION IDENTIQUE NE PEUT PAS ÊTRE
-# À LA FOIS BUFF ET NERF.
-#
-# PRIORITÉ AU BUFF.
+# BUFF + NERF IDENTIQUES
 # ============================================================
 
 def remove_cross_duplicates(
@@ -744,6 +773,9 @@ def remove_cross_duplicates(
             normalize(change)
         )
 
+        # Si la modification existe déjà
+        # dans BUFFS, on ne l'affiche pas
+        # dans NERFS.
         if key in buff_keys:
             continue
 
@@ -828,6 +860,51 @@ def group(items):
 
 
 # ============================================================
+# SÉPARATION DES MODIFICATIONS MULTIPLES
+# ============================================================
+
+def split_multiple_changes(
+    change
+):
+
+    # Détecte les enchaînements :
+    #
+    # "Vitesse ... 5 % → 3 % Portée ... 35 % → 40 %"
+    #
+    # et les sépare.
+
+    pattern = re.compile(
+        r"(?P<first>.+?"
+        r"(?:→\s*[\d.]+\s*(?:m/s|%|m|×)))"
+        r"\s+"
+        r"(?P<second>"
+        r"(?:Vitesse|Portée|Recul|Contrôle|Dégâts|"
+        r"Multiplicateur|Bonus|Malus).+)$",
+        re.I
+    )
+
+    match = pattern.match(
+        change
+    )
+
+    if match:
+
+        return [
+            match.group(
+                "first"
+            ).strip(),
+
+            match.group(
+                "second"
+            ).strip()
+        ]
+
+    return [
+        change
+    ]
+
+
+# ============================================================
 # MESSAGE DISCORD
 # ============================================================
 
@@ -836,7 +913,6 @@ def build_message(
     nerfs
 ):
 
-    # Nettoyage
     buffs = remove_redundant(
         buffs
     )
@@ -845,8 +921,6 @@ def build_message(
         nerfs
     )
 
-    # Suppression des doublons entre
-    # BUFF et NERF
     buffs, nerfs = remove_cross_duplicates(
         buffs,
         nerfs
@@ -865,9 +939,9 @@ def build_message(
         "━━━━━━━━━━━━━━━━━━━━\n\n"
     )
 
-    # --------------------------------------------------------
+    # ========================================================
     # BUFFS
-    # --------------------------------------------------------
+    # ========================================================
 
     if buff_groups:
 
@@ -883,15 +957,21 @@ def build_message(
 
             for change in changes:
 
-                message += (
-                    f"• {change}\n"
+                parts = split_multiple_changes(
+                    change
                 )
+
+                for part in parts:
+
+                    message += (
+                        f"• {part}\n"
+                    )
 
             message += "\n"
 
-    # --------------------------------------------------------
+    # ========================================================
     # NERFS
-    # --------------------------------------------------------
+    # ========================================================
 
     if nerf_groups:
 
@@ -907,11 +987,21 @@ def build_message(
 
             for change in changes:
 
-                message += (
-                    f"• {change}\n"
+                parts = split_multiple_changes(
+                    change
                 )
 
+                for part in parts:
+
+                    message += (
+                        f"• {part}\n"
+                    )
+
             message += "\n"
+
+    # ========================================================
+    # FOOTER
+    # ========================================================
 
     message += (
         "📅 **Saison 05 Reloaded**\n\n"
@@ -926,7 +1016,9 @@ def build_message(
 # ENVOI DISCORD
 # ============================================================
 
-def send_discord(message):
+def send_discord(
+    message
+):
 
     if not WEBHOOK_URL:
 
