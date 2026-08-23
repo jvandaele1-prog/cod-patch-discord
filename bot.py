@@ -1,5 +1,6 @@
 import os
 import re
+import hashlib
 import requests
 from bs4 import BeautifulSoup
 
@@ -20,6 +21,9 @@ HEADERS = {
         "AppleWebKit/537.36 Chrome/131.0 Safari/537.36"
     )
 }
+
+# Fichier utilisé pour mémoriser le dernier patch envoyé
+LAST_PATCH_FILE = ".last_patch"
 
 
 # ============================================================
@@ -179,7 +183,6 @@ def translate(text):
 
 def format_numbers(text):
 
-    # Pourcentages
     text = re.sub(
         r"(\d+(?:\.\d+)?)\s*%\s*(?:à|to)\s*"
         r"(\d+(?:\.\d+)?)\s*%",
@@ -188,7 +191,6 @@ def format_numbers(text):
         flags=re.I
     )
 
-    # m/s
     text = re.sub(
         r"(\d+(?:\.\d+)?)\s*m/s\s*(?:à|to)\s*"
         r"(\d+(?:\.\d+)?)\s*m/s",
@@ -197,7 +199,6 @@ def format_numbers(text):
         flags=re.I
     )
 
-    # mètres
     text = re.sub(
         r"(\d+(?:\.\d+)?)\s*m\s*(?:à|to)\s*"
         r"(\d+(?:\.\d+)?)\s*m",
@@ -206,7 +207,6 @@ def format_numbers(text):
         flags=re.I
     )
 
-    # multiplicateurs
     text = re.sub(
         r"(\d+(?:\.\d+)?)x\s*(?:à|to)\s*"
         r"(\d+(?:\.\d+)?)x",
@@ -215,7 +215,6 @@ def format_numbers(text):
         flags=re.I
     )
 
-    # nombres simples
     text = re.sub(
         r"(\d+(?:\.\d+)?)\s*(?:à|to)\s*"
         r"(\d+(?:\.\d+)?)",
@@ -355,7 +354,6 @@ def classify(text):
     # MALUS
     # ========================================================
 
-    # Un malus qui diminue = BUFF
     if "malus" in lower or "penalty" in lower:
 
         if any(
@@ -373,7 +371,6 @@ def classify(text):
         ):
             return "buff"
 
-        # Un malus qui augmente = NERF
         if any(
             word in lower
             for word in [
@@ -689,7 +686,6 @@ def extract_changes(lines):
 
         text = format_change(line)
 
-        # Retirer le nom de l'arme
         for weapon_name in WEAPONS:
 
             if text.upper().startswith(
@@ -726,7 +722,6 @@ def normalize(text):
 
     text = text.lower()
 
-    # Réduit = diminué pour la comparaison
     text = text.replace(
         "réduit",
         "diminué"
@@ -757,7 +752,6 @@ def normalize(text):
         "diminué"
     )
 
-    # Espaces
     text = text.replace(
         " ",
         ""
@@ -837,7 +831,7 @@ def remove_cross_duplicates(
 
 
 # ============================================================
-# ACCESSOIRES À CONSERVER AVEC LEUR MODIFICATION
+# ACCESSOIRES
 # ============================================================
 
 ATTACHMENT_PATTERNS = [
@@ -878,21 +872,6 @@ def is_attachment_start(text):
 def split_multiple_changes(text):
 
     text = text.strip()
-
-    # --------------------------------------------------------
-    # IMPORTANT :
-    # On ne coupe JAMAIS les noms d'accessoires.
-    # --------------------------------------------------------
-
-    # Cas :
-    # "15" Benthic Barrel Recul ... Vitesse ..."
-    #
-    # doit rester UNE seule puce.
-
-    # --------------------------------------------------------
-    # On ne sépare que lorsqu'un NOUVEAU paramètre
-    # commence APRÈS une modification complète.
-    # --------------------------------------------------------
 
     patterns = [
         r"\s+(?=Portée intermédiaire des dégâts\s+bonus)",
@@ -1002,10 +981,6 @@ def build_message(
         "━━━━━━━━━━━━━━━━━━━━\n\n"
     )
 
-    # ========================================================
-    # BUFFS
-    # ========================================================
-
     if buff_groups:
 
         message += (
@@ -1026,10 +1001,6 @@ def build_message(
 
             message += "\n"
 
-    # ========================================================
-    # NERFS
-    # ========================================================
-
     if nerf_groups:
 
         message += (
@@ -1049,10 +1020,6 @@ def build_message(
                 )
 
             message += "\n"
-
-    # ========================================================
-    # FOOTER
-    # ========================================================
 
     message += (
         "📅 **Saison 05 Reloaded**\n\n"
@@ -1116,6 +1083,66 @@ def send_discord(message):
 
 
 # ============================================================
+# ANTI-DOUBLON
+# ============================================================
+
+def get_message_hash(message):
+
+    return hashlib.sha256(
+        message.encode("utf-8")
+    ).hexdigest()
+
+
+def is_new_patch(message):
+
+    current_hash = get_message_hash(
+        message
+    )
+
+    if not os.path.exists(
+        LAST_PATCH_FILE
+    ):
+        return True
+
+    try:
+
+        with open(
+            LAST_PATCH_FILE,
+            "r",
+            encoding="utf-8"
+        ) as file:
+
+            last_hash = file.read().strip()
+
+        return current_hash != last_hash
+
+    except Exception as error:
+
+        print(
+            f"⚠️ Erreur lecture historique : {error}"
+        )
+
+        return True
+
+
+def save_patch_hash(message):
+
+    current_hash = get_message_hash(
+        message
+    )
+
+    with open(
+        LAST_PATCH_FILE,
+        "w",
+        encoding="utf-8"
+    ) as file:
+
+        file.write(
+            current_hash
+        )
+
+
+# ============================================================
 # PROGRAMME PRINCIPAL
 # ============================================================
 
@@ -1172,12 +1199,40 @@ def main():
         "\n=============================\n"
     )
 
+    # ========================================================
+    # VÉRIFICATION ANTI-DOUBLON
+    # ========================================================
+
+    if not is_new_patch(message):
+
+        print(
+            "ℹ️ Ce patch a déjà été envoyé."
+        )
+
+        print(
+            "🚫 Aucun message Discord envoyé."
+        )
+
+        return
+
+    # ========================================================
+    # NOUVEAU PATCH
+    # ========================================================
+
+    print(
+        "🆕 Nouveau patch détecté !"
+    )
+
     send_discord(
         message
     )
 
+    save_patch_hash(
+        message
+    )
+
     print(
-        "✅ Patch envoyé sur Discord !"
+        "✅ Nouveau patch envoyé sur Discord !"
     )
 
 
