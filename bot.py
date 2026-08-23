@@ -1,5 +1,6 @@
 import os
 import re
+import json
 import hashlib
 import requests
 from bs4 import BeautifulSoup
@@ -18,12 +19,13 @@ PATCH_URL = (
 HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-        "AppleWebKit/537.36 Chrome/131.0 Safari/537.36"
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/131.0 Safari/537.36"
     )
 }
 
-# Fichier utilisé pour mémoriser le dernier patch envoyé
-LAST_PATCH_FILE = ".last_patch"
+# Fichier qui mémorise le dernier patch envoyé
+STATE_FILE = "last_patch.json"
 
 
 # ============================================================
@@ -183,6 +185,7 @@ def translate(text):
 
 def format_numbers(text):
 
+    # Pourcentages
     text = re.sub(
         r"(\d+(?:\.\d+)?)\s*%\s*(?:à|to)\s*"
         r"(\d+(?:\.\d+)?)\s*%",
@@ -191,6 +194,7 @@ def format_numbers(text):
         flags=re.I
     )
 
+    # m/s
     text = re.sub(
         r"(\d+(?:\.\d+)?)\s*m/s\s*(?:à|to)\s*"
         r"(\d+(?:\.\d+)?)\s*m/s",
@@ -199,6 +203,7 @@ def format_numbers(text):
         flags=re.I
     )
 
+    # mètres
     text = re.sub(
         r"(\d+(?:\.\d+)?)\s*m\s*(?:à|to)\s*"
         r"(\d+(?:\.\d+)?)\s*m",
@@ -207,6 +212,7 @@ def format_numbers(text):
         flags=re.I
     )
 
+    # multiplicateurs
     text = re.sub(
         r"(\d+(?:\.\d+)?)x\s*(?:à|to)\s*"
         r"(\d+(?:\.\d+)?)x",
@@ -215,6 +221,7 @@ def format_numbers(text):
         flags=re.I
     )
 
+    # nombres simples
     text = re.sub(
         r"(\d+(?:\.\d+)?)\s*(?:à|to)\s*"
         r"(\d+(?:\.\d+)?)",
@@ -335,7 +342,7 @@ def is_table_value(text):
 
     return bool(
         re.fullmatch(
-            r"[\d\s\-\>\<\.m]+",
+            r"[\d\s\-><\.m]+",
             cleaned,
             re.I
         )
@@ -356,6 +363,7 @@ def classify(text):
 
     if "malus" in lower or "penalty" in lower:
 
+        # Un malus qui diminue = BUFF
         if any(
             word in lower
             for word in [
@@ -371,6 +379,7 @@ def classify(text):
         ):
             return "buff"
 
+        # Un malus qui augmente = NERF
         if any(
             word in lower
             for word in [
@@ -686,6 +695,7 @@ def extract_changes(lines):
 
         text = format_change(line)
 
+        # Retirer le nom de l'arme
         for weapon_name in WEAPONS:
 
             if text.upper().startswith(
@@ -722,40 +732,19 @@ def normalize(text):
 
     text = text.lower()
 
-    text = text.replace(
-        "réduit",
-        "diminué"
-    )
+    replacements = {
+        "réduit": "diminué",
+        "réduite": "diminuée",
+        "réduits": "diminués",
+        "réduites": "diminuées",
+        "reduced": "diminué",
+        "decreased": "diminué"
+    }
 
-    text = text.replace(
-        "réduite",
-        "diminuée"
-    )
+    for old, new in replacements.items():
+        text = text.replace(old, new)
 
-    text = text.replace(
-        "réduits",
-        "diminués"
-    )
-
-    text = text.replace(
-        "réduites",
-        "diminuées"
-    )
-
-    text = text.replace(
-        "reduced",
-        "diminué"
-    )
-
-    text = text.replace(
-        "decreased",
-        "diminué"
-    )
-
-    text = text.replace(
-        " ",
-        ""
-    )
+    text = text.replace(" ", "")
 
     return text
 
@@ -876,7 +865,7 @@ def split_multiple_changes(text):
     patterns = [
         r"\s+(?=Portée intermédiaire des dégâts\s+bonus)",
         r"\s+(?=Portée maximale des dégâts\s+)",
-        r"\s+(?=Multiplicateur de dégâts à la tête\s+)",
+        r"\s+(?=Multiplicateur de dégâts à la tête\s+)"
     ]
 
     parts = [text]
@@ -895,6 +884,7 @@ def split_multiple_changes(text):
 
             if len(split) == 1:
                 new_parts.append(part)
+
             else:
 
                 first = split[0].strip()
@@ -938,10 +928,7 @@ def group(items):
         for part in parts:
 
             if part not in result[weapon]:
-
-                result[weapon].append(
-                    part
-                )
+                result[weapon].append(part)
 
     return result
 
@@ -955,79 +942,118 @@ def build_message(
     nerfs
 ):
 
-    buffs = remove_duplicates(
-        buffs
-    )
-
-    nerfs = remove_duplicates(
-        nerfs
-    )
+    buffs = remove_duplicates(buffs)
+    nerfs = remove_duplicates(nerfs)
 
     buffs, nerfs = remove_cross_duplicates(
         buffs,
         nerfs
     )
 
-    buff_groups = group(
-        buffs
-    )
-
-    nerf_groups = group(
-        nerfs
-    )
+    buff_groups = group(buffs)
+    nerf_groups = group(nerfs)
 
     message = (
         "🇫🇷 **CALL OF DUTY — WARZONE**\n"
         "━━━━━━━━━━━━━━━━━━━━\n\n"
     )
 
+    # ========================================================
+    # BUFFS
+    # ========================================================
+
     if buff_groups:
 
-        message += (
-            "🟢 **BUFFS**\n\n"
-        )
+        message += "🟢 **BUFFS**\n\n"
 
         for weapon, changes in buff_groups.items():
 
-            message += (
-                f"**{weapon}**\n"
-            )
+            message += f"**{weapon}**\n"
 
             for change in changes:
-
-                message += (
-                    f"• {change}\n"
-                )
+                message += f"• {change}\n"
 
             message += "\n"
+
+    # ========================================================
+    # NERFS
+    # ========================================================
 
     if nerf_groups:
 
-        message += (
-            "🔴 **NERFS**\n\n"
-        )
+        message += "🔴 **NERFS**\n\n"
 
         for weapon, changes in nerf_groups.items():
 
-            message += (
-                f"**{weapon}**\n"
-            )
+            message += f"**{weapon}**\n"
 
             for change in changes:
-
-                message += (
-                    f"• {change}\n"
-                )
+                message += f"• {change}\n"
 
             message += "\n"
 
+    # ========================================================
+    # FOOTER
+    # ========================================================
+
     message += (
-        "📅 **Saison 05 Reloaded**\n\n"
-        "🔗 **Notes officielles :**\n"
-        f"{PATCH_URL}"
+        "📅 **Saison 05 Reloaded**"
     )
 
     return message
+
+
+# ============================================================
+# MÉMOIRE DU DERNIER PATCH
+# ============================================================
+
+def load_last_patch():
+
+    if not os.path.exists(STATE_FILE):
+        return None
+
+    try:
+
+        with open(
+            STATE_FILE,
+            "r",
+            encoding="utf-8"
+        ) as file:
+
+            data = json.load(file)
+
+        return data.get("hash")
+
+    except Exception:
+
+        return None
+
+
+def save_last_patch(patch_hash):
+
+    data = {
+        "hash": patch_hash
+    }
+
+    with open(
+        STATE_FILE,
+        "w",
+        encoding="utf-8"
+    ) as file:
+
+        json.dump(
+            data,
+            file,
+            ensure_ascii=False,
+            indent=2
+        )
+
+
+def get_patch_hash(message):
+
+    return hashlib.sha256(
+        message.encode("utf-8")
+    ).hexdigest()
 
 
 # ============================================================
@@ -1042,18 +1068,54 @@ def send_discord(message):
             "La variable DISCORD_WEBHOOK est introuvable."
         )
 
+    # Discord permet jusqu'à 4096 caractères
+    # dans la description d'un embed.
+    #
+    # On utilise donc un embed pour éviter
+    # plusieurs messages lorsque le patch dépasse
+    # la limite classique de 2000 caractères.
+
+    if len(message) <= 4096:
+
+        payload = {
+            "username": "COD Patch Bot",
+            "embeds": [
+                {
+                    "description": message,
+                    "color": 5763719,
+                    "footer": {
+                        "text": "Notes officielles Call of Duty"
+                    },
+                    "url": PATCH_URL
+                }
+            ]
+        }
+
+        response = requests.post(
+            WEBHOOK_URL,
+            json=payload,
+            timeout=30
+        )
+
+        response.raise_for_status()
+
+        return
+
+    # Sécurité si le message dépasse 4096 caractères.
+    # Dans ce cas seulement, plusieurs messages seront envoyés.
+
     chunks = []
 
-    while len(message) > 1900:
+    while len(message) > 3900:
 
         position = message.rfind(
             "\n",
             0,
-            1900
+            3900
         )
 
         if position <= 0:
-            position = 1900
+            position = 3900
 
         chunks.append(
             message[:position]
@@ -1064,82 +1126,28 @@ def send_discord(message):
         ].lstrip()
 
     if message:
-        chunks.append(
-            message
-        )
+        chunks.append(message)
 
     for chunk in chunks:
 
+        payload = {
+            "username": "COD Patch Bot",
+            "embeds": [
+                {
+                    "description": chunk,
+                    "color": 5763719,
+                    "url": PATCH_URL
+                }
+            ]
+        }
+
         response = requests.post(
             WEBHOOK_URL,
-            json={
-                "username": "COD Patch Bot",
-                "content": chunk
-            },
+            json=payload,
             timeout=30
         )
 
         response.raise_for_status()
-
-
-# ============================================================
-# ANTI-DOUBLON
-# ============================================================
-
-def get_message_hash(message):
-
-    return hashlib.sha256(
-        message.encode("utf-8")
-    ).hexdigest()
-
-
-def is_new_patch(message):
-
-    current_hash = get_message_hash(
-        message
-    )
-
-    if not os.path.exists(
-        LAST_PATCH_FILE
-    ):
-        return True
-
-    try:
-
-        with open(
-            LAST_PATCH_FILE,
-            "r",
-            encoding="utf-8"
-        ) as file:
-
-            last_hash = file.read().strip()
-
-        return current_hash != last_hash
-
-    except Exception as error:
-
-        print(
-            f"⚠️ Erreur lecture historique : {error}"
-        )
-
-        return True
-
-
-def save_patch_hash(message):
-
-    current_hash = get_message_hash(
-        message
-    )
-
-    with open(
-        LAST_PATCH_FILE,
-        "w",
-        encoding="utf-8"
-    ) as file:
-
-        file.write(
-            current_hash
-        )
 
 
 # ============================================================
@@ -1152,13 +1160,31 @@ def main():
         "🔎 Recherche du patch Call of Duty..."
     )
 
-    response = requests.get(
-        PATCH_URL,
-        headers=HEADERS,
-        timeout=30
-    )
+    if not WEBHOOK_URL:
 
-    response.raise_for_status()
+        print(
+            "❌ ERREUR : DISCORD_WEBHOOK n'est pas défini."
+        )
+
+        return
+
+    try:
+
+        response = requests.get(
+            PATCH_URL,
+            headers=HEADERS,
+            timeout=30
+        )
+
+        response.raise_for_status()
+
+    except requests.RequestException as error:
+
+        print(
+            f"❌ Impossible de récupérer le patch : {error}"
+        )
+
+        return
 
     print(
         "✅ Page récupérée."
@@ -1189,28 +1215,24 @@ def main():
         nerfs
     )
 
-    print(
-        "\n========== MESSAGE ==========\n"
-    )
-
-    print(message)
-
-    print(
-        "\n=============================\n"
-    )
-
     # ========================================================
-    # VÉRIFICATION ANTI-DOUBLON
+    # VÉRIFICATION DU DOUBLON GLOBAL
     # ========================================================
 
-    if not is_new_patch(message):
+    current_hash = get_patch_hash(
+        message
+    )
+
+    last_hash = load_last_patch()
+
+    if last_hash == current_hash:
 
         print(
             "ℹ️ Ce patch a déjà été envoyé."
         )
 
         print(
-            "🚫 Aucun message Discord envoyé."
+            "🚫 Aucun nouveau message Discord envoyé."
         )
 
         return
@@ -1223,16 +1245,43 @@ def main():
         "🆕 Nouveau patch détecté !"
     )
 
-    send_discord(
-        message
+    print(
+        "\n========== MESSAGE ==========\n"
     )
 
-    save_patch_hash(
-        message
+    print(message)
+
+    print(
+        "\n=============================\n"
+    )
+
+    try:
+
+        send_discord(
+            message
+        )
+
+    except requests.RequestException as error:
+
+        print(
+            f"❌ Erreur lors de l'envoi Discord : {error}"
+        )
+
+        return
+
+    # On mémorise uniquement après
+    # un envoi Discord réussi.
+
+    save_last_patch(
+        current_hash
     )
 
     print(
-        "✅ Nouveau patch envoyé sur Discord !"
+        "✅ Patch envoyé sur Discord !"
+    )
+
+    print(
+        "💾 Patch mémorisé pour éviter les doublons."
     )
 
 
