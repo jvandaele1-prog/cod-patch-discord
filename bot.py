@@ -1,7 +1,5 @@
 import os
 import re
-import json
-import hashlib
 import requests
 from bs4 import BeautifulSoup
 
@@ -16,16 +14,15 @@ PATCH_URL = (
     "call-of-duty-bo7-warzone-season-05-reloaded-patch-notes"
 )
 
+# Fichier servant à mémoriser le dernier patch envoyé
+SENT_PATCH_FILE = "sent_patch.txt"
+
 HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-        "AppleWebKit/537.36 (KHTML, like Gecko) "
-        "Chrome/131.0 Safari/537.36"
+        "AppleWebKit/537.36 Chrome/131.0 Safari/537.36"
     )
 }
-
-# Fichier qui mémorise le dernier patch envoyé
-STATE_FILE = "last_patch.json"
 
 
 # ============================================================
@@ -738,13 +735,14 @@ def normalize(text):
         "réduits": "diminués",
         "réduites": "diminuées",
         "reduced": "diminué",
-        "decreased": "diminué"
+        "decreased": "diminué",
     }
 
     for old, new in replacements.items():
         text = text.replace(old, new)
 
-    text = text.replace(" ", "")
+    # Uniformisation des espaces
+    text = re.sub(r"\s+", "", text)
 
     return text
 
@@ -824,13 +822,13 @@ def remove_cross_duplicates(
 # ============================================================
 
 ATTACHMENT_PATTERNS = [
-    r'\d+(?:\.\d+)?".*?Barrel',
-    r'\d+(?:\.\d+)?".*?Grip',
-    r'\d+(?:\.\d+)?".*?Compensator',
-    r'\d+(?:\.\d+)?".*?Stock',
-    r'\d+(?:\.\d+)?".*?Magazine',
-    r'\d+(?:\.\d+)?".*?Suppressor',
-    r'\d+(?:\.\d+)?".*?Muzzle',
+    r'\d+(?:\.\d+)".*?Barrel',
+    r'\d+(?:\.\d+)".*?Grip',
+    r'\d+(?:\.\d+)".*?Compensator',
+    r'\d+(?:\.\d+)".*?Stock',
+    r'\d+(?:\.\d+)".*?Magazine',
+    r'\d+(?:\.\d+)".*?Suppressor',
+    r'\d+(?:\.\d+)".*?Muzzle',
     r'\.300 WM Overpressured',
     r'5\.56 NATO FMJ',
     r'12 Gauge Slug',
@@ -865,7 +863,7 @@ def split_multiple_changes(text):
     patterns = [
         r"\s+(?=Portée intermédiaire des dégâts\s+bonus)",
         r"\s+(?=Portée maximale des dégâts\s+)",
-        r"\s+(?=Multiplicateur de dégâts à la tête\s+)"
+        r"\s+(?=Multiplicateur de dégâts à la tête\s+)",
     ]
 
     parts = [text]
@@ -928,7 +926,10 @@ def group(items):
         for part in parts:
 
             if part not in result[weapon]:
-                result[weapon].append(part)
+
+                result[weapon].append(
+                    part
+                )
 
     return result
 
@@ -942,16 +943,26 @@ def build_message(
     nerfs
 ):
 
-    buffs = remove_duplicates(buffs)
-    nerfs = remove_duplicates(nerfs)
+    buffs = remove_duplicates(
+        buffs
+    )
+
+    nerfs = remove_duplicates(
+        nerfs
+    )
 
     buffs, nerfs = remove_cross_duplicates(
         buffs,
         nerfs
     )
 
-    buff_groups = group(buffs)
-    nerf_groups = group(nerfs)
+    buff_groups = group(
+        buffs
+    )
+
+    nerf_groups = group(
+        nerfs
+    )
 
     message = (
         "🇫🇷 **CALL OF DUTY — WARZONE**\n"
@@ -964,14 +975,21 @@ def build_message(
 
     if buff_groups:
 
-        message += "🟢 **BUFFS**\n\n"
+        message += (
+            "🟢 **BUFFS**\n\n"
+        )
 
         for weapon, changes in buff_groups.items():
 
-            message += f"**{weapon}**\n"
+            message += (
+                f"**{weapon}**\n"
+            )
 
             for change in changes:
-                message += f"• {change}\n"
+
+                message += (
+                    f"• {change}\n"
+                )
 
             message += "\n"
 
@@ -981,14 +999,21 @@ def build_message(
 
     if nerf_groups:
 
-        message += "🔴 **NERFS**\n\n"
+        message += (
+            "🔴 **NERFS**\n\n"
+        )
 
         for weapon, changes in nerf_groups.items():
 
-            message += f"**{weapon}**\n"
+            message += (
+                f"**{weapon}**\n"
+            )
 
             for change in changes:
-                message += f"• {change}\n"
+
+                message += (
+                    f"• {change}\n"
+                )
 
             message += "\n"
 
@@ -997,63 +1022,86 @@ def build_message(
     # ========================================================
 
     message += (
-        "📅 **Saison 05 Reloaded**"
+        "📅 **Saison 05 Reloaded**\n\n"
+        "🔗 **Notes officielles :**\n"
+        f"{PATCH_URL}"
     )
 
     return message
 
 
 # ============================================================
-# MÉMOIRE DU DERNIER PATCH
+# PROTECTION ANTI-REPUBLICATION
 # ============================================================
 
-def load_last_patch():
+def get_last_sent_patch():
 
-    if not os.path.exists(STATE_FILE):
+    if not os.path.exists(SENT_PATCH_FILE):
         return None
 
     try:
-
         with open(
-            STATE_FILE,
+            SENT_PATCH_FILE,
             "r",
             encoding="utf-8"
         ) as file:
 
-            data = json.load(file)
+            value = file.read().strip()
 
-        return data.get("hash")
+            if value:
+                return value
 
-    except Exception:
+    except Exception as error:
 
-        return None
+        print(
+            f"⚠️ Impossible de lire {SENT_PATCH_FILE}: {error}"
+        )
+
+    return None
 
 
-def save_last_patch(patch_hash):
+def save_sent_patch():
 
-    data = {
-        "hash": patch_hash
-    }
+    try:
 
-    with open(
-        STATE_FILE,
-        "w",
-        encoding="utf-8"
-    ) as file:
+        with open(
+            SENT_PATCH_FILE,
+            "w",
+            encoding="utf-8"
+        ) as file:
 
-        json.dump(
-            data,
-            file,
-            ensure_ascii=False,
-            indent=2
+            file.write(
+                PATCH_URL
+            )
+
+        print(
+            "💾 Patch enregistré comme déjà envoyé."
+        )
+
+    except Exception as error:
+
+        raise RuntimeError(
+            f"Impossible d'enregistrer le patch envoyé : {error}"
         )
 
 
-def get_patch_hash(message):
+def patch_already_sent():
 
-    return hashlib.sha256(
-        message.encode("utf-8")
-    ).hexdigest()
+    last_patch = get_last_sent_patch()
+
+    if last_patch == PATCH_URL:
+
+        print(
+            "🛑 Ce patch a déjà été envoyé."
+        )
+
+        print(
+            "🛑 Aucun nouveau message Discord ne sera envoyé."
+        )
+
+        return True
+
+    return False
 
 
 # ============================================================
@@ -1068,54 +1116,18 @@ def send_discord(message):
             "La variable DISCORD_WEBHOOK est introuvable."
         )
 
-    # Discord permet jusqu'à 4096 caractères
-    # dans la description d'un embed.
-    #
-    # On utilise donc un embed pour éviter
-    # plusieurs messages lorsque le patch dépasse
-    # la limite classique de 2000 caractères.
-
-    if len(message) <= 4096:
-
-        payload = {
-            "username": "COD Patch Bot",
-            "embeds": [
-                {
-                    "description": message,
-                    "color": 5763719,
-                    "footer": {
-                        "text": "Notes officielles Call of Duty"
-                    },
-                    "url": PATCH_URL
-                }
-            ]
-        }
-
-        response = requests.post(
-            WEBHOOK_URL,
-            json=payload,
-            timeout=30
-        )
-
-        response.raise_for_status()
-
-        return
-
-    # Sécurité si le message dépasse 4096 caractères.
-    # Dans ce cas seulement, plusieurs messages seront envoyés.
-
     chunks = []
 
-    while len(message) > 3900:
+    while len(message) > 1900:
 
         position = message.rfind(
             "\n",
             0,
-            3900
+            1900
         )
 
         if position <= 0:
-            position = 3900
+            position = 1900
 
         chunks.append(
             message[:position]
@@ -1126,28 +1138,30 @@ def send_discord(message):
         ].lstrip()
 
     if message:
-        chunks.append(message)
+        chunks.append(
+            message
+        )
+
+    print(
+        f"📨 Envoi de {len(chunks)} message(s) Discord..."
+    )
 
     for chunk in chunks:
 
-        payload = {
-            "username": "COD Patch Bot",
-            "embeds": [
-                {
-                    "description": chunk,
-                    "color": 5763719,
-                    "url": PATCH_URL
-                }
-            ]
-        }
-
         response = requests.post(
             WEBHOOK_URL,
-            json=payload,
+            json={
+                "username": "COD Patch Bot",
+                "content": chunk
+            },
             timeout=30
         )
 
         response.raise_for_status()
+
+    print(
+        "✅ Message(s) Discord envoyé(s)."
+    )
 
 
 # ============================================================
@@ -1160,35 +1174,35 @@ def main():
         "🔎 Recherche du patch Call of Duty..."
     )
 
-    if not WEBHOOK_URL:
+    # --------------------------------------------------------
+    # PROTECTION N°1
+    # --------------------------------------------------------
+    # Si ce patch a déjà été envoyé, on arrête immédiatement.
+    # Cela empêche une republication à chaque exécution du workflow.
+    # --------------------------------------------------------
 
-        print(
-            "❌ ERREUR : DISCORD_WEBHOOK n'est pas défini."
-        )
-
+    if patch_already_sent():
         return
 
-    try:
+    # --------------------------------------------------------
+    # RÉCUPÉRATION DU PATCH
+    # --------------------------------------------------------
 
-        response = requests.get(
-            PATCH_URL,
-            headers=HEADERS,
-            timeout=30
-        )
+    response = requests.get(
+        PATCH_URL,
+        headers=HEADERS,
+        timeout=30
+    )
 
-        response.raise_for_status()
-
-    except requests.RequestException as error:
-
-        print(
-            f"❌ Impossible de récupérer le patch : {error}"
-        )
-
-        return
+    response.raise_for_status()
 
     print(
         "✅ Page récupérée."
     )
+
+    # --------------------------------------------------------
+    # EXTRACTION
+    # --------------------------------------------------------
 
     lines = extract_lines(
         response.text
@@ -1210,39 +1224,13 @@ def main():
         f"🔴 Nerfs détectés : {len(nerfs)}"
     )
 
+    # --------------------------------------------------------
+    # CONSTRUCTION DU MESSAGE
+    # --------------------------------------------------------
+
     message = build_message(
         buffs,
         nerfs
-    )
-
-    # ========================================================
-    # VÉRIFICATION DU DOUBLON GLOBAL
-    # ========================================================
-
-    current_hash = get_patch_hash(
-        message
-    )
-
-    last_hash = load_last_patch()
-
-    if last_hash == current_hash:
-
-        print(
-            "ℹ️ Ce patch a déjà été envoyé."
-        )
-
-        print(
-            "🚫 Aucun nouveau message Discord envoyé."
-        )
-
-        return
-
-    # ========================================================
-    # NOUVEAU PATCH
-    # ========================================================
-
-    print(
-        "🆕 Nouveau patch détecté !"
     )
 
     print(
@@ -1255,33 +1243,30 @@ def main():
         "\n=============================\n"
     )
 
-    try:
+    # --------------------------------------------------------
+    # ENVOI DISCORD
+    # --------------------------------------------------------
 
-        send_discord(
-            message
-        )
-
-    except requests.RequestException as error:
-
-        print(
-            f"❌ Erreur lors de l'envoi Discord : {error}"
-        )
-
-        return
-
-    # On mémorise uniquement après
-    # un envoi Discord réussi.
-
-    save_last_patch(
-        current_hash
+    send_discord(
+        message
     )
 
-    print(
-        "✅ Patch envoyé sur Discord !"
-    )
+    # --------------------------------------------------------
+    # PROTECTION N°2
+    # --------------------------------------------------------
+    # IMPORTANT :
+    # On enregistre le patch SEULEMENT après un envoi réussi.
+    #
+    # Donc :
+    # - envoi réussi → patch mémorisé
+    # - erreur Discord → patch NON mémorisé
+    # - prochain lancement → nouvel essai
+    # --------------------------------------------------------
+
+    save_sent_patch()
 
     print(
-        "💾 Patch mémorisé pour éviter les doublons."
+        "✅ Patch envoyé et enregistré."
     )
 
 
