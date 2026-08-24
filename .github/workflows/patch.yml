@@ -45,15 +45,23 @@ jobs:
         run: |
           python bot.py
 
-      - name: Sauvegarder le dernier patch
-        run: |
-          git config user.name "COD Patch Bot"
-          git config user.email "cod-patch-bot@users.noreply.github.com"
+      # ============================================================
+# SAUVEGARDE DE LA MÉMOIRE DU DERNIER PATCH
+# ============================================================
 
-          if git diff --quiet; then
-            echo "Aucune modification à enregistrer."
-          else
-            git add last_patch.txt
-            git commit -m "Update last Warzone patch"
-            git push
-          fi
+- name: Sauvegarder le dernier patch
+  run: |
+    git config user.name "COD Patch Bot"
+    git config user.email "cod-patch-bot@users.noreply.github.com"
+
+    # Ajouter le fichier même s'il est nouveau
+    git add last_patch.txt
+
+    # Vérifier s'il y a réellement quelque chose à commit
+    if git diff --cached --quiet; then
+      echo "Aucune modification de last_patch.txt à enregistrer."
+    else
+      git commit -m "Update last Warzone patch"
+      git push
+      echo "✅ last_patch.txt sauvegardé dans GitHub."
+    fi
