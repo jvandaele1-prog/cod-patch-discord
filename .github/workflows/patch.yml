@@ -2,10 +2,8 @@ name: Call of Duty Patch Bot
 
 on:
   schedule:
-    # Vérification toutes les heures
-    - cron: "0 * * * *"
+    - cron: "*/15 * * * *"
 
-  # Permet de lancer manuellement le bot
   workflow_dispatch:
 
 permissions:
@@ -13,21 +11,17 @@ permissions:
 
 concurrency:
   group: cod-patch-bot
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
-
   run-bot:
-
     runs-on: ubuntu-latest
 
     steps:
-
       - name: Recuperer le code
         uses: actions/checkout@v4
         with:
           persist-credentials: true
-          fetch-depth: 1
 
       - name: Installer Python
         uses: actions/setup-python@v5
@@ -45,23 +39,15 @@ jobs:
         run: |
           python bot.py
 
-      # ============================================================
-# SAUVEGARDE DE LA MÉMOIRE DU DERNIER PATCH
-# ============================================================
+      - name: Sauvegarder le dernier patch
+        run: |
+          git config user.name "COD Patch Bot"
+          git config user.email "cod-patch-bot@users.noreply.github.com"
 
-- name: Sauvegarder le dernier patch
-  run: |
-    git config user.name "COD Patch Bot"
-    git config user.email "cod-patch-bot@users.noreply.github.com"
-
-    # Ajouter le fichier même s'il est nouveau
-    git add last_patch.txt
-
-    # Vérifier s'il y a réellement quelque chose à commit
-    if git diff --cached --quiet; then
-      echo "Aucune modification de last_patch.txt à enregistrer."
-    else
-      git commit -m "Update last Warzone patch"
-      git push
-      echo "✅ last_patch.txt sauvegardé dans GitHub."
-    fi
+          if git diff --quiet; then
+            echo "Aucune modification a enregistrer."
+          else
+            git add last_patch.txt
+            git commit -m "Update last Warzone patch"
+            git push
+          fi
