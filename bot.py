@@ -1,7 +1,9 @@
 import os
 import re
+import hashlib
 import requests
 from bs4 import BeautifulSoup
+
 
 # ============================================================
 # CONFIGURATION
@@ -14,8 +16,7 @@ PATCH_URL = (
     "call-of-duty-bo7-warzone-season-05-reloaded-patch-notes"
 )
 
-# Fichier servant à mémoriser le dernier patch envoyé
-SENT_PATCH_FILE = "sent_patch.txt"
+LAST_PATCH_FILE = "last_patch.txt"
 
 HEADERS = {
     "User-Agent": (
@@ -46,7 +47,7 @@ WEAPONS = [
     "M10 BREACHER",
     "SG-12",
     "STRIDER 300",
-    "PEACEKEEPER MK1"
+    "PEACEKEEPER MK1",
 ]
 
 
@@ -135,7 +136,7 @@ TRANSLATIONS = {
     "and": "et",
     "And": "et",
 
-    "by": "de"
+    "by": "de",
 }
 
 
@@ -144,7 +145,6 @@ TRANSLATIONS = {
 # ============================================================
 
 def clean(text):
-
     replacements = {
         "àrse": "torse",
         "àrso": "torse",
@@ -165,11 +165,10 @@ def clean(text):
 # ============================================================
 
 def translate(text):
-
     for english, french in sorted(
         TRANSLATIONS.items(),
         key=lambda x: len(x[0]),
-        reverse=True
+        reverse=True,
     ):
         text = text.replace(english, french)
 
@@ -188,7 +187,7 @@ def format_numbers(text):
         r"(\d+(?:\.\d+)?)\s*%",
         r"\1 % → \2 %",
         text,
-        flags=re.I
+        flags=re.I,
     )
 
     # m/s
@@ -197,7 +196,7 @@ def format_numbers(text):
         r"(\d+(?:\.\d+)?)\s*m/s",
         r"\1 m/s → \2 m/s",
         text,
-        flags=re.I
+        flags=re.I,
     )
 
     # mètres
@@ -206,7 +205,7 @@ def format_numbers(text):
         r"(\d+(?:\.\d+)?)\s*m",
         r"\1 m → \2 m",
         text,
-        flags=re.I
+        flags=re.I,
     )
 
     # multiplicateurs
@@ -215,7 +214,7 @@ def format_numbers(text):
         r"(\d+(?:\.\d+)?)x",
         r"\1× → \2×",
         text,
-        flags=re.I
+        flags=re.I,
     )
 
     # nombres simples
@@ -224,7 +223,7 @@ def format_numbers(text):
         r"(\d+(?:\.\d+)?)",
         r"\1 → \2",
         text,
-        flags=re.I
+        flags=re.I,
     )
 
     return text
@@ -240,7 +239,6 @@ def format_change(text):
     text = format_numbers(text)
 
     replacements = {
-
         "ADS Dégâts Dégâts maximum":
             "Dégâts maximum en ADS",
 
@@ -267,6 +265,12 @@ def format_change(text):
 
         "headshot et haut du torse dégâts":
             "dégâts aux tirs à la tête et au haut du torse",
+
+        "Now improves":
+            "Améliore désormais",
+
+        "now improves":
+            "améliore désormais",
     }
 
     for old, new in replacements.items():
@@ -288,7 +292,7 @@ def detect_weapon(text):
     for weapon in sorted(
         WEAPONS,
         key=len,
-        reverse=True
+        reverse=True,
     ):
         if weapon.upper() in upper:
             return weapon
@@ -312,7 +316,7 @@ def is_description(text):
         "silently fires",
         "overall handling",
         "mobility",
-        "fires two projectiles"
+        "fires two projectiles",
     ]
 
     return any(
@@ -320,6 +324,10 @@ def is_description(text):
         for word in ignored
     )
 
+
+# ============================================================
+# VALEURS DE TABLEAU
+# ============================================================
 
 def is_table_value(text):
 
@@ -334,14 +342,14 @@ def is_table_value(text):
     cleaned = re.sub(
         r"[⇧⇩↑↓]",
         "",
-        text
+        text,
     ).strip()
 
     return bool(
         re.fullmatch(
-            r"[\d\s\-><\.m]+",
+            r"[\d\s\-\>\<\.m]+",
             cleaned,
-            re.I
+            re.I,
         )
     )
 
@@ -371,7 +379,7 @@ def classify(text):
                 "penalty diminué",
                 "penalty réduit",
                 "penalty decreased",
-                "penalty reduced"
+                "penalty reduced",
             ]
         ):
             return "buff"
@@ -383,7 +391,7 @@ def classify(text):
                 "malus augmenté",
                 "malus augmente",
                 "penalty augmenté",
-                "penalty increased"
+                "penalty increased",
             ]
         ):
             return "nerf"
@@ -398,7 +406,7 @@ def classify(text):
             "bonus amélioré",
             "bonus augmenté",
             "benefit amélioré",
-            "benefit augmenté"
+            "benefit augmenté",
         ]
     ):
         return "buff"
@@ -409,7 +417,7 @@ def classify(text):
             "bonus réduit",
             "bonus diminué",
             "benefit réduit",
-            "benefit diminué"
+            "benefit diminué",
         ]
     ):
         return "nerf"
@@ -424,7 +432,7 @@ def classify(text):
             "recul",
             "recoil",
             "gunkick",
-            "viewkick"
+            "viewkick",
         ]
     ):
 
@@ -440,7 +448,7 @@ def classify(text):
                 "diminués",
                 "diminuées",
                 "reduced",
-                "decreased"
+                "decreased",
             ]
         ):
             return "buff"
@@ -452,7 +460,7 @@ def classify(text):
                 "augmentée",
                 "augmentés",
                 "augmentées",
-                "increased"
+                "increased",
             ]
         ):
             return "nerf"
@@ -476,7 +484,7 @@ def classify(text):
                 "amélioré",
                 "améliorée",
                 "increased",
-                "improved"
+                "improved",
             ]
         ):
             return "buff"
@@ -493,7 +501,7 @@ def classify(text):
                 "réduits",
                 "réduites",
                 "decreased",
-                "reduced"
+                "reduced",
             ]
         ):
             return "nerf"
@@ -507,7 +515,7 @@ def classify(text):
         for word in [
             "dégâts",
             "damage",
-            "multiplicateur"
+            "multiplicateur",
         ]
     ):
 
@@ -521,7 +529,7 @@ def classify(text):
                 "amélioré",
                 "améliorée",
                 "increased",
-                "improved"
+                "improved",
             ]
         ):
             return "buff"
@@ -538,7 +546,7 @@ def classify(text):
                 "réduits",
                 "réduites",
                 "decreased",
-                "reduced"
+                "reduced",
             ]
         ):
             return "nerf"
@@ -562,7 +570,7 @@ def classify(text):
                 "amélioré",
                 "améliorée",
                 "increased",
-                "improved"
+                "improved",
             ]
         ):
             return "buff"
@@ -579,7 +587,7 @@ def classify(text):
                 "réduits",
                 "réduites",
                 "decreased",
-                "reduced"
+                "reduced",
             ]
         ):
             return "nerf"
@@ -595,7 +603,7 @@ def extract_lines(html):
 
     soup = BeautifulSoup(
         html,
-        "html.parser"
+        "html.parser",
     )
 
     for element in soup([
@@ -605,38 +613,27 @@ def extract_lines(html):
         "svg",
         "nav",
         "footer",
-        "header"
+        "header",
     ]):
         element.decompose()
 
     main = soup.find("main")
 
+    tags = [
+        "h1",
+        "h2",
+        "h3",
+        "h4",
+        "p",
+        "li",
+        "td",
+        "th",
+    ]
+
     if main:
-        elements = main.find_all(
-            [
-                "h1",
-                "h2",
-                "h3",
-                "h4",
-                "p",
-                "li",
-                "td",
-                "th"
-            ]
-        )
+        elements = main.find_all(tags)
     else:
-        elements = soup.find_all(
-            [
-                "h1",
-                "h2",
-                "h3",
-                "h4",
-                "p",
-                "li",
-                "td",
-                "th"
-            ]
-        )
+        elements = soup.find_all(tags)
 
     lines = []
 
@@ -645,7 +642,7 @@ def extract_lines(html):
         text = clean(
             element.get_text(
                 " ",
-                strip=True
+                strip=True,
             )
         )
 
@@ -692,7 +689,7 @@ def extract_changes(lines):
 
         text = format_change(line)
 
-        # Retirer le nom de l'arme
+        # Retirer le nom de l'arme au début
         for weapon_name in WEAPONS:
 
             if text.upper().startswith(
@@ -744,6 +741,9 @@ def normalize(text):
     # Uniformisation des espaces
     text = re.sub(r"\s+", "", text)
 
+    # Uniformisation des flèches
+    text = text.replace("->", "→")
+
     return text
 
 
@@ -760,7 +760,7 @@ def remove_duplicates(items):
 
         key = (
             weapon.lower(),
-            normalize(change)
+            normalize(change),
         )
 
         if key in seen:
@@ -781,7 +781,7 @@ def remove_duplicates(items):
 
 def remove_cross_duplicates(
     buffs,
-    nerfs
+    nerfs,
 ):
 
     buffs = remove_duplicates(buffs)
@@ -794,7 +794,7 @@ def remove_cross_duplicates(
         buff_keys.add(
             (
                 weapon.lower(),
-                normalize(change)
+                normalize(change),
             )
         )
 
@@ -804,7 +804,7 @@ def remove_cross_duplicates(
 
         key = (
             weapon.lower(),
-            normalize(change)
+            normalize(change),
         )
 
         if key in buff_keys:
@@ -822,17 +822,17 @@ def remove_cross_duplicates(
 # ============================================================
 
 ATTACHMENT_PATTERNS = [
-    r'\d+(?:\.\d+)".*?Barrel',
-    r'\d+(?:\.\d+)".*?Grip',
-    r'\d+(?:\.\d+)".*?Compensator',
-    r'\d+(?:\.\d+)".*?Stock',
-    r'\d+(?:\.\d+)".*?Magazine',
-    r'\d+(?:\.\d+)".*?Suppressor',
-    r'\d+(?:\.\d+)".*?Muzzle',
+    r'\d+(?:\.\d+)?" .*?Barrel',
+    r'\d+(?:\.\d+)?" .*?Grip',
+    r'\d+(?:\.\d+)?" .*?Compensator',
+    r'\d+(?:\.\d+)?" .*?Stock',
+    r'\d+(?:\.\d+)?" .*?Magazine',
+    r'\d+(?:\.\d+)?" .*?Suppressor',
+    r'\d+(?:\.\d+)?" .*?Muzzle',
     r'\.300 WM Overpressured',
     r'5\.56 NATO FMJ',
     r'12 Gauge Slug',
-    r'Argus Lever'
+    r'Argus Lever',
 ]
 
 
@@ -845,7 +845,7 @@ def is_attachment_start(text):
         if re.match(
             pattern,
             text,
-            re.I
+            re.I,
         ):
             return True
 
@@ -859,6 +859,9 @@ def is_attachment_start(text):
 def split_multiple_changes(text):
 
     text = text.strip()
+
+    # On conserve volontairement les modifications
+    # d'accessoires sur la même ligne.
 
     patterns = [
         r"\s+(?=Portée intermédiaire des dégâts\s+bonus)",
@@ -877,7 +880,7 @@ def split_multiple_changes(text):
             split = re.split(
                 pattern,
                 part,
-                flags=re.I
+                flags=re.I,
             )
 
             if len(split) == 1:
@@ -926,12 +929,109 @@ def group(items):
         for part in parts:
 
             if part not in result[weapon]:
-
-                result[weapon].append(
-                    part
-                )
+                result[weapon].append(part)
 
     return result
+
+
+# ============================================================
+# EMPREINTE DU PATCH
+# ============================================================
+
+def create_patch_fingerprint(
+    buffs,
+    nerfs,
+):
+    """
+    Crée une empreinte unique du contenu détecté.
+
+    Tant que les Buffs/Nerfs détectés sont identiques,
+    le bot considère qu'il s'agit du même patch et
+    ne republie rien.
+    """
+
+    buffs = remove_duplicates(buffs)
+    nerfs = remove_duplicates(nerfs)
+
+    buffs, nerfs = remove_cross_duplicates(
+        buffs,
+        nerfs,
+    )
+
+    entries = []
+
+    for weapon, change in buffs:
+        entries.append(
+            "BUFF|"
+            + weapon.upper()
+            + "|"
+            + normalize(change)
+        )
+
+    for weapon, change in nerfs:
+        entries.append(
+            "NERF|"
+            + weapon.upper()
+            + "|"
+            + normalize(change)
+        )
+
+    entries.sort()
+
+    raw = "\n".join(entries)
+
+    return hashlib.sha256(
+        raw.encode("utf-8")
+    ).hexdigest()
+
+
+# ============================================================
+# LECTURE DE LA DERNIÈRE EMPREINTE
+# ============================================================
+
+def read_last_patch():
+
+    if not os.path.exists(
+        LAST_PATCH_FILE
+    ):
+        return None
+
+    try:
+
+        with open(
+            LAST_PATCH_FILE,
+            "r",
+            encoding="utf-8",
+        ) as file:
+
+            value = file.read().strip()
+
+            if value:
+                return value
+
+    except Exception as error:
+
+        print(
+            f"⚠️ Impossible de lire {LAST_PATCH_FILE}: "
+            f"{error}"
+        )
+
+    return None
+
+
+# ============================================================
+# SAUVEGARDE DE LA DERNIÈRE EMPREINTE
+# ============================================================
+
+def save_last_patch(fingerprint):
+
+    with open(
+        LAST_PATCH_FILE,
+        "w",
+        encoding="utf-8",
+    ) as file:
+
+        file.write(fingerprint)
 
 
 # ============================================================
@@ -940,7 +1040,7 @@ def group(items):
 
 def build_message(
     buffs,
-    nerfs
+    nerfs,
 ):
 
     buffs = remove_duplicates(
@@ -1031,80 +1131,6 @@ def build_message(
 
 
 # ============================================================
-# PROTECTION ANTI-REPUBLICATION
-# ============================================================
-
-def get_last_sent_patch():
-
-    if not os.path.exists(SENT_PATCH_FILE):
-        return None
-
-    try:
-        with open(
-            SENT_PATCH_FILE,
-            "r",
-            encoding="utf-8"
-        ) as file:
-
-            value = file.read().strip()
-
-            if value:
-                return value
-
-    except Exception as error:
-
-        print(
-            f"⚠️ Impossible de lire {SENT_PATCH_FILE}: {error}"
-        )
-
-    return None
-
-
-def save_sent_patch():
-
-    try:
-
-        with open(
-            SENT_PATCH_FILE,
-            "w",
-            encoding="utf-8"
-        ) as file:
-
-            file.write(
-                PATCH_URL
-            )
-
-        print(
-            "💾 Patch enregistré comme déjà envoyé."
-        )
-
-    except Exception as error:
-
-        raise RuntimeError(
-            f"Impossible d'enregistrer le patch envoyé : {error}"
-        )
-
-
-def patch_already_sent():
-
-    last_patch = get_last_sent_patch()
-
-    if last_patch == PATCH_URL:
-
-        print(
-            "🛑 Ce patch a déjà été envoyé."
-        )
-
-        print(
-            "🛑 Aucun nouveau message Discord ne sera envoyé."
-        )
-
-        return True
-
-    return False
-
-
-# ============================================================
 # ENVOI DISCORD
 # ============================================================
 
@@ -1123,7 +1149,7 @@ def send_discord(message):
         position = message.rfind(
             "\n",
             0,
-            1900
+            1900,
         )
 
         if position <= 0:
@@ -1138,30 +1164,37 @@ def send_discord(message):
         ].lstrip()
 
     if message:
-        chunks.append(
-            message
-        )
+        chunks.append(message)
 
     print(
-        f"📨 Envoi de {len(chunks)} message(s) Discord..."
+        f"📨 Message Discord divisé en "
+        f"{len(chunks)} partie(s)."
     )
 
-    for chunk in chunks:
+    for index, chunk in enumerate(
+        chunks,
+        start=1,
+    ):
+
+        print(
+            f"📤 Envoi Discord "
+            f"{index}/{len(chunks)}..."
+        )
 
         response = requests.post(
             WEBHOOK_URL,
             json={
                 "username": "COD Patch Bot",
-                "content": chunk
+                "content": chunk,
             },
-            timeout=30
+            timeout=30,
         )
 
         response.raise_for_status()
 
-    print(
-        "✅ Message(s) Discord envoyé(s)."
-    )
+        print(
+            f"✅ Partie {index} envoyée."
+        )
 
 
 # ============================================================
@@ -1175,23 +1208,24 @@ def main():
     )
 
     # --------------------------------------------------------
-    # PROTECTION N°1
-    # --------------------------------------------------------
-    # Si ce patch a déjà été envoyé, on arrête immédiatement.
-    # Cela empêche une republication à chaque exécution du workflow.
+    # Vérification de la variable Discord
     # --------------------------------------------------------
 
-    if patch_already_sent():
-        return
+    if not WEBHOOK_URL:
+
+        raise RuntimeError(
+            "❌ DISCORD_WEBHOOK n'est pas configurée "
+            "dans les secrets GitHub."
+        )
 
     # --------------------------------------------------------
-    # RÉCUPÉRATION DU PATCH
+    # Téléchargement du patch
     # --------------------------------------------------------
 
     response = requests.get(
         PATCH_URL,
         headers=HEADERS,
-        timeout=30
+        timeout=30,
     )
 
     response.raise_for_status()
@@ -1201,7 +1235,7 @@ def main():
     )
 
     # --------------------------------------------------------
-    # EXTRACTION
+    # Extraction
     # --------------------------------------------------------
 
     lines = extract_lines(
@@ -1216,6 +1250,23 @@ def main():
         lines
     )
 
+    # --------------------------------------------------------
+    # Suppression des doublons
+    # --------------------------------------------------------
+
+    buffs = remove_duplicates(
+        buffs
+    )
+
+    nerfs = remove_duplicates(
+        nerfs
+    )
+
+    buffs, nerfs = remove_cross_duplicates(
+        buffs,
+        nerfs
+    )
+
     print(
         f"🟢 Buffs détectés : {len(buffs)}"
     )
@@ -1225,7 +1276,86 @@ def main():
     )
 
     # --------------------------------------------------------
-    # CONSTRUCTION DU MESSAGE
+    # Vérification qu'il y a bien quelque chose à envoyer
+    # --------------------------------------------------------
+
+    if not buffs and not nerfs:
+
+        print(
+            "⚠️ Aucun changement détecté."
+        )
+
+        print(
+            "⛔ Aucun message Discord envoyé."
+        )
+
+        return
+
+    # --------------------------------------------------------
+    # Création de l'empreinte du patch
+    # --------------------------------------------------------
+
+    fingerprint = create_patch_fingerprint(
+        buffs,
+        nerfs,
+    )
+
+    print(
+        f"🔐 Empreinte du patch : {fingerprint}"
+    )
+
+    # --------------------------------------------------------
+    # Lecture de l'empreinte précédente
+    # --------------------------------------------------------
+
+    previous_fingerprint = read_last_patch()
+
+    if previous_fingerprint:
+
+        print(
+            f"💾 Empreinte enregistrée : "
+            f"{previous_fingerprint}"
+        )
+
+    else:
+
+        print(
+            "💾 Aucune empreinte précédente."
+        )
+
+    # ========================================================
+    # PROTECTION ANTI-DOUBLON
+    # ========================================================
+
+    if (
+        previous_fingerprint
+        and fingerprint == previous_fingerprint
+    ):
+
+        print(
+            "🛑 PATCH DÉJÀ PUBLIÉ."
+        )
+
+        print(
+            "⛔ Aucun message Discord envoyé."
+        )
+
+        print(
+            "✅ Protection anti-doublon active."
+        )
+
+        return
+
+    # --------------------------------------------------------
+    # Nouveau patch détecté
+    # --------------------------------------------------------
+
+    print(
+        "🆕 NOUVEAU PATCH DÉTECTÉ !"
+    )
+
+    # --------------------------------------------------------
+    # Construction du message
     # --------------------------------------------------------
 
     message = build_message(
@@ -1252,21 +1382,20 @@ def main():
     )
 
     # --------------------------------------------------------
-    # PROTECTION N°2
-    # --------------------------------------------------------
-    # IMPORTANT :
-    # On enregistre le patch SEULEMENT après un envoi réussi.
-    #
-    # Donc :
-    # - envoi réussi → patch mémorisé
-    # - erreur Discord → patch NON mémorisé
-    # - prochain lancement → nouvel essai
+    # Sauvegarde de l'empreinte
     # --------------------------------------------------------
 
-    save_sent_patch()
+    save_last_patch(
+        fingerprint
+    )
 
     print(
-        "✅ Patch envoyé et enregistré."
+        "💾 Nouvelle empreinte enregistrée "
+        "dans last_patch.txt"
+    )
+
+    print(
+        "✅ Patch envoyé sur Discord !"
     )
 
 
